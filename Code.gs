@@ -163,7 +163,7 @@ function callGeminiAI(prompt, fileData) {
   }
   try {
     // Try multiple model names in case one isn't available
-    var models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+    var models = ['gemini-1.5-flash', 'gemini-2.0-flash'];
     var lastError = '';
 
     for (var m = 0; m < models.length; m++) {
