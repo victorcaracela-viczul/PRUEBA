@@ -251,10 +251,12 @@ body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;backg
       </button>
 
       <div class="result-card" id="configResult" style="margin-top:16px">
-        <h5>ℹ️ Información</h5>
-        <p>La configuración se guarda en el archivo Code.gs del proyecto.<br>
-        <strong>Sin API Key:</strong> Los juegos funcionan con el simulador de IA integrado (banco de +60 conceptos SST).<br>
-        <strong>Con API Key:</strong> Gemini genera contenido dinámico basado en tus documentos.</p>
+        <h5 id="resultTitle">ℹ️ ¿Cómo configurar?</h5>
+        <p id="resultMsg">1. Obtén tu API Key gratis en <strong>aistudio.google.com</strong> → Get API Key<br>
+        2. Copia el ID de tu Google Sheet desde la URL<br>
+        3. Pega ambos valores arriba y haz clic en Guardar<br><br>
+        <strong>Sin API Key:</strong> Los juegos usan contenido predeterminado (no lee tus documentos).<br>
+        <strong>Con API Key:</strong> Gemini analiza tus documentos y genera contenido personalizado.</p>
       </div>
     </div>
   </div>
@@ -363,14 +365,15 @@ function generateContent() {
 function simulateGeneration() {
   const result = document.getElementById('resultCard');
   result.classList.add('show');
-  
+  result.classList.add('error');
+
   const gameNames = { mahjong:'Mahjong', memoria:'Memoria', dragdrop:'Drag & Drop', quiz:'Quiz', simulacion:'Simulación' };
-  
-  document.getElementById('resultTitle').textContent = '✅ Contenido generado (Modo Simulado)';
-  document.getElementById('resultMsg').textContent = 
-    `Se generó contenido para ${gameNames[selectedGame]} usando el banco de datos SST integrado. Para usar Gemini AI real, configura tu API Key en la pestaña Configuración.`;
-  document.getElementById('previewData').textContent = 
-    '{\n  "tipo": "' + selectedGame + '",\n  "elementos": "Generados automáticamente",\n  "fuente": "Simulador SST integrado",\n  "nota": "Conecta Gemini AI para contenido basado en tus documentos"\n}';
+
+  document.getElementById('resultTitle').textContent = '⚠️ Contenido genérico (IA no conectada)';
+  document.getElementById('resultMsg').textContent =
+    `Se generó contenido PREDETERMINADO para ${gameNames[selectedGame]}, NO basado en tu documento. Para que Gemini analice tus archivos y genere preguntas personalizadas, ve a la pestaña "Configuración IA" y guarda tu API Key de Gemini.`;
+  document.getElementById('previewData').textContent =
+    '⚠️ Tu documento NO fue procesado.\n\nPara activar la IA:\n1. Ve a la pestaña "Configuración IA"\n2. Ingresa tu Gemini API Key (gratis en aistudio.google.com)\n3. Ingresa el ID de tu Google Sheet\n4. Haz clic en "Guardar Configuración"\n5. Vuelve aquí y sube tu documento de nuevo';
 }
 
 // Tabs
@@ -418,8 +421,86 @@ function deleteItem(row) {
   } catch(e) { alert('Error al eliminar'); }
 }
 
+// Load config status on page load
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    google.script.run.withSuccessHandler(function(cfg) {
+      if (cfg.hasApiKey) {
+        document.getElementById('apiStatus').className = 'status-badge connected';
+        document.getElementById('apiStatus').textContent = '🟢 Gemini Conectado (' + cfg.apiKeyPreview + ')';
+        document.getElementById('apiKeyInput').placeholder = 'Clave guardada: ' + cfg.apiKeyPreview;
+      }
+      if (cfg.hasSheetId) {
+        document.getElementById('sheetIdInput').placeholder = 'Guardado: ' + cfg.sheetIdPreview;
+      }
+    }).getConfigStatus();
+  } catch(e) {}
+});
+
 function saveConfig() {
-  alert('Para guardar la configuración permanentemente:\n\n1. Abre el editor de Apps Script\n2. En Code.gs, cambia TU_GEMINI_API_KEY_AQUI por tu clave\n3. Cambia USE_REAL_API a true\n4. Vuelve a implementar la web app');
+  var apiKey = document.getElementById('apiKeyInput').value.trim();
+  var sheetId = document.getElementById('sheetIdInput').value.trim();
+
+  if (!apiKey && !sheetId) {
+    alert('Ingresa al menos la API Key o el ID de la hoja de cálculo');
+    return;
+  }
+
+  var btn = document.querySelector('.config-card .btn-generate');
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando y probando conexión...';
+
+  var resultEl = document.getElementById('configResult');
+  resultEl.classList.remove('show', 'error');
+
+  try {
+    google.script.run
+      .withSuccessHandler(function(status) {
+        btn.disabled = false;
+        btn.textContent = '💾 Guardar Configuración';
+        resultEl.classList.add('show');
+
+        if (status.success) {
+          var msgs = [];
+          if (status.sheetConnected) msgs.push('✅ Google Sheet conectado correctamente');
+          else if (status.sheetError) msgs.push('❌ Sheet: ' + status.sheetError);
+
+          if (status.apiConnected) {
+            msgs.push('✅ Gemini AI conectado y funcionando');
+            document.getElementById('apiStatus').className = 'status-badge connected';
+            document.getElementById('apiStatus').textContent = '🟢 Gemini Conectado';
+          } else if (status.apiError) {
+            msgs.push('❌ Gemini: ' + status.apiError);
+          } else if (!apiKey) {
+            msgs.push('⚪ Gemini: sin cambios');
+          }
+
+          var allOk = status.sheetConnected && status.apiConnected;
+          resultEl.className = 'result-card show' + (allOk ? '' : ' error');
+          document.getElementById('resultTitle').textContent = allOk ? '✅ ¡Todo conectado!' : '⚠️ Resultado de la configuración';
+          document.getElementById('resultMsg').innerHTML = msgs.join('<br>');
+          if (allOk) {
+            document.getElementById('resultMsg').innerHTML += '<br><br><strong>¡Ahora sube un documento y genera contenido personalizado!</strong>';
+          }
+        } else {
+          resultEl.className = 'result-card show error';
+          document.getElementById('resultTitle').textContent = '❌ Error';
+          document.getElementById('resultMsg').textContent = status.error || 'Error al guardar';
+        }
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled = false;
+        btn.textContent = '💾 Guardar Configuración';
+        resultEl.classList.add('show', 'error');
+        document.getElementById('resultTitle').textContent = '❌ Error de conexión';
+        document.getElementById('resultMsg').textContent = 'No se pudo guardar. Asegúrate de estar ejecutando desde Apps Script.';
+      })
+      .saveConfigFromAdmin(apiKey || null, sheetId || null);
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar Configuración';
+    alert('Error: esta función requiere estar desplegada en Google Apps Script.\n\nPara configurar manualmente:\n1. Abre Code.gs en el editor de Apps Script\n2. Cambia TU_GEMINI_API_KEY_AQUI por tu clave\n3. Cambia TU_SPREADSHEET_ID_AQUI por el ID de tu hoja\n4. Vuelve a implementar la web app');
+  }
 }
 
 function goBack() {

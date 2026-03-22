@@ -2,14 +2,34 @@
 // 🛡️ SST GAMEHUB v2.0 - BACKEND CON GEMINI AI
 // ============================================================
 
+// Default config (overridden by Script Properties when available)
 const CONFIG = {
-  SPREADSHEET_ID: 'TU_SPREADSHEET_ID_AQUI',
+  SPREADSHEET_ID: '1IUsFpuV5PPqQ-Ym62Vdy7nWfueumpxSc7fCasM-Ojes',
   SHEET_PERSONAL: 'PERSONAL',
   SHEET_RESULTADOS: 'RESULTADOS',
   SHEET_CONTENIDO: 'CONTENIDO_IA',
-  GEMINI_API_KEY: 'TU_GEMINI_API_KEY_AQUI',
-  USE_REAL_API: false
+  GEMINI_API_KEY: 'AIzaSyALlrf-0Gys2i6S9yrV3CdWoVAHWoA7dkg',
+  USE_REAL_API: true
 };
+
+// Load dynamic config from Script Properties (saved via Admin UI)
+function loadConfig_() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const savedKey = props.getProperty('GEMINI_API_KEY');
+    const savedSheet = props.getProperty('SPREADSHEET_ID');
+    if (savedKey && savedKey !== 'TU_GEMINI_API_KEY_AQUI') {
+      CONFIG.GEMINI_API_KEY = savedKey;
+      CONFIG.USE_REAL_API = true;
+    }
+    if (savedSheet && savedSheet !== 'TU_SPREADSHEET_ID_AQUI') {
+      CONFIG.SPREADSHEET_ID = savedSheet;
+    }
+  } catch(e) { Logger.log('loadConfig error: ' + e.message); }
+}
+
+// Auto-load config on every execution
+loadConfig_();
 
 // ===== SERVIR PÁGINAS =====
 function doGet(e) {
@@ -78,6 +98,60 @@ function getScoreHistory(dni) {
 
 function getWebAppUrl() { return ScriptApp.getService().getUrl(); }
 
+// ===== CONFIGURACIÓN DINÁMICA =====
+function saveConfigFromAdmin(apiKey, sheetId) {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    if (apiKey) props.setProperty('GEMINI_API_KEY', apiKey);
+    if (sheetId) props.setProperty('SPREADSHEET_ID', sheetId);
+    // Reload config immediately
+    if (apiKey && apiKey !== 'TU_GEMINI_API_KEY_AQUI') {
+      CONFIG.GEMINI_API_KEY = apiKey;
+      CONFIG.USE_REAL_API = true;
+    }
+    if (sheetId && sheetId !== 'TU_SPREADSHEET_ID_AQUI') {
+      CONFIG.SPREADSHEET_ID = sheetId;
+    }
+    // Test connection
+    var status = { success: true, apiConnected: false, sheetConnected: false };
+    // Test Sheet
+    try {
+      var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+      ss.getName();
+      status.sheetConnected = true;
+    } catch(e) { status.sheetError = e.message; }
+    // Test Gemini
+    if (CONFIG.USE_REAL_API) {
+      try {
+        var testUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + CONFIG.GEMINI_API_KEY;
+        var testPayload = { contents: [{ parts: [{ text: 'Responde solo: {"ok":true}' }] }], generationConfig: { maxOutputTokens: 20 } };
+        var resp = UrlFetchApp.fetch(testUrl, { method: 'post', contentType: 'application/json', payload: JSON.stringify(testPayload), muteHttpExceptions: true });
+        var code = resp.getResponseCode();
+        status.apiConnected = (code === 200);
+        if (code !== 200) status.apiError = 'HTTP ' + code + ': ' + resp.getContentText().substring(0, 200);
+      } catch(e) { status.apiError = e.message; }
+    }
+    return status;
+  } catch(e) { return { success: false, error: e.message }; }
+}
+
+function getConfigStatus() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var apiKey = props.getProperty('GEMINI_API_KEY') || CONFIG.GEMINI_API_KEY;
+    var sheetId = props.getProperty('SPREADSHEET_ID') || CONFIG.SPREADSHEET_ID;
+    var hasKey = apiKey && apiKey !== 'TU_GEMINI_API_KEY_AQUI';
+    var hasSheet = sheetId && sheetId !== 'TU_SPREADSHEET_ID_AQUI';
+    return {
+      hasApiKey: hasKey,
+      apiKeyPreview: hasKey ? apiKey.substring(0, 8) + '...' : '',
+      hasSheetId: hasSheet,
+      sheetIdPreview: hasSheet ? sheetId.substring(0, 12) + '...' : '',
+      useRealApi: hasKey
+    };
+  } catch(e) { return { hasApiKey: false, hasSheetId: false, useRealApi: false }; }
+}
+
 // ============================================================
 // 🤖 GEMINI AI ENGINE
 // ============================================================
@@ -137,7 +211,7 @@ function processUploadedFile(fileBase64, fileName, mimeType, gameType) {
   const prompt = buildFilePrompt(gameType, fileName);
   const geminiResult = callGeminiAI(prompt, { base64: fileBase64, mimeType: mimeType });
   
-  if (geminiResult && (geminiResult.pairs || geminiResult.questions)) {
+  if (geminiResult && (geminiResult.pairs || geminiResult.questions || geminiResult.categories || geminiResult.scenario)) {
     // Save to CONTENIDO sheet
     saveGeneratedContent(gameType, geminiResult, fileName);
     return { success: true, data: geminiResult, source: 'gemini' };
