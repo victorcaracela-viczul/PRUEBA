@@ -227,17 +227,33 @@ body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;backg
   <!-- TAB: Config -->
   <div class="tab-content" id="tab-config">
     <div class="config-card">
-      <h4>🔧 Configuración de Gemini AI</h4>
-      
+      <h4>🔧 Configuración de IA (Gemini + ChatGPT)</h4>
+
       <div style="margin-bottom:20px">
         <span>Estado: </span>
         <span class="status-badge disconnected" id="apiStatus">⚪ Modo Simulado</span>
       </div>
 
       <div class="config-field">
-        <label>Gemini API Key</label>
+        <label>Proveedor de IA</label>
+        <select id="aiProviderSelect" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;font-size:14px;background:#fff">
+          <option value="auto">🔄 Auto (Gemini primero, ChatGPT como respaldo)</option>
+          <option value="gemini">🟦 Solo Gemini</option>
+          <option value="openai">🟩 Solo ChatGPT/OpenAI</option>
+        </select>
+        <div class="hint">En modo <strong>Auto</strong>, si Gemini falla se usa ChatGPT automáticamente</div>
+      </div>
+
+      <div class="config-field">
+        <label>🟦 Gemini API Key</label>
         <input type="password" id="apiKeyInput" placeholder="AIzaSy... (tu API Key de Google AI Studio)">
         <div class="hint">Obtén tu clave gratis en <strong>aistudio.google.com</strong> → Get API Key</div>
+      </div>
+
+      <div class="config-field">
+        <label>🟩 OpenAI (ChatGPT) API Key</label>
+        <input type="password" id="openaiKeyInput" placeholder="sk-... (tu API Key de OpenAI)">
+        <div class="hint">Obtén tu clave en <strong>platform.openai.com/api-keys</strong> (tiene costo por uso)</div>
       </div>
 
       <div class="config-field">
@@ -251,7 +267,7 @@ body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;backg
           💾 Guardar Configuración
         </button>
         <button class="btn-generate" onclick="testConnection()" id="btnTest" style="flex:1;background:linear-gradient(135deg,var(--green),#66bb6a);box-shadow:0 4px 15px rgba(67,160,71,0.3)">
-          🧪 Probar Conexión Gemini
+          🧪 Probar Conexión IA
         </button>
       </div>
 
@@ -582,13 +598,24 @@ function deleteItem(row) {
 document.addEventListener('DOMContentLoaded', function() {
   try {
     google.script.run.withSuccessHandler(function(cfg) {
-      if (cfg.hasApiKey) {
-        document.getElementById('apiStatus').className = 'status-badge connected';
-        document.getElementById('apiStatus').textContent = '🟢 Gemini Conectado (' + cfg.apiKeyPreview + ')';
+      var statusParts = [];
+      if (cfg.hasGeminiKey) {
+        statusParts.push('Gemini (' + cfg.apiKeyPreview + ')');
         document.getElementById('apiKeyInput').placeholder = 'Clave guardada: ' + cfg.apiKeyPreview;
+      }
+      if (cfg.hasOpenAIKey) {
+        statusParts.push('OpenAI (' + cfg.openaiKeyPreview + ')');
+        document.getElementById('openaiKeyInput').placeholder = 'Clave guardada: ' + cfg.openaiKeyPreview;
+      }
+      if (statusParts.length > 0) {
+        document.getElementById('apiStatus').className = 'status-badge connected';
+        document.getElementById('apiStatus').textContent = '🟢 ' + statusParts.join(' + ');
       }
       if (cfg.hasSheetId) {
         document.getElementById('sheetIdInput').placeholder = 'Guardado: ' + cfg.sheetIdPreview;
+      }
+      if (cfg.aiProvider) {
+        document.getElementById('aiProviderSelect').value = cfg.aiProvider;
       }
     }).getConfigStatus();
   } catch(e) {}
@@ -597,9 +624,11 @@ document.addEventListener('DOMContentLoaded', function() {
 function saveConfig() {
   var apiKey = document.getElementById('apiKeyInput').value.trim();
   var sheetId = document.getElementById('sheetIdInput').value.trim();
+  var openaiKey = document.getElementById('openaiKeyInput').value.trim();
+  var aiProvider = document.getElementById('aiProviderSelect').value;
 
-  if (!apiKey && !sheetId) {
-    alert('Ingresa al menos la API Key o el ID de la hoja de cálculo');
+  if (!apiKey && !sheetId && !openaiKey) {
+    alert('Ingresa al menos una API Key o el ID de la hoja de cálculo');
     return;
   }
 
@@ -622,17 +651,32 @@ function saveConfig() {
           if (status.sheetConnected) msgs.push('✅ Google Sheet conectado correctamente');
           else if (status.sheetError) msgs.push('❌ Sheet: ' + status.sheetError);
 
-          if (status.apiConnected) {
+          if (status.geminiConnected) {
             msgs.push('✅ Gemini AI conectado y funcionando');
-            document.getElementById('apiStatus').className = 'status-badge connected';
-            document.getElementById('apiStatus').textContent = '🟢 Gemini Conectado';
-          } else if (status.apiError) {
-            msgs.push('❌ Gemini: ' + status.apiError);
-          } else if (!apiKey) {
-            msgs.push('⚪ Gemini: sin cambios');
+          } else if (status.geminiError) {
+            msgs.push('❌ Gemini: ' + status.geminiError);
           }
 
-          var allOk = status.sheetConnected && status.apiConnected;
+          if (status.openaiConnected) {
+            msgs.push('✅ OpenAI (ChatGPT) conectado y funcionando');
+          } else if (status.openaiError) {
+            msgs.push('❌ OpenAI: ' + status.openaiError);
+          }
+
+          var anyAI = status.geminiConnected || status.openaiConnected;
+          if (anyAI) {
+            var providerNames = [];
+            if (status.geminiConnected) providerNames.push('Gemini');
+            if (status.openaiConnected) providerNames.push('OpenAI');
+            document.getElementById('apiStatus').className = 'status-badge connected';
+            document.getElementById('apiStatus').textContent = '🟢 ' + providerNames.join(' + ');
+          }
+
+          if (!anyAI && !apiKey && !openaiKey) {
+            msgs.push('⚪ IA: sin cambios');
+          }
+
+          var allOk = status.sheetConnected && anyAI;
           resultEl.className = 'result-card show' + (allOk ? '' : ' error');
           document.getElementById('cfgResultTitle').textContent = allOk ? '✅ ¡Todo conectado!' : '⚠️ Resultado de la configuración';
           document.getElementById('cfgResultMsg').innerHTML = msgs.join('<br>');
@@ -652,7 +696,7 @@ function saveConfig() {
         document.getElementById('cfgResultTitle').textContent = '❌ Error de conexión';
         document.getElementById('cfgResultMsg').textContent = 'No se pudo guardar. Asegúrate de estar ejecutando desde Apps Script.';
       })
-      .saveConfigFromAdmin(apiKey || null, sheetId || null);
+      .saveConfigFromAdmin(apiKey || null, sheetId || null, openaiKey || null, aiProvider);
   } catch(e) {
     btn.disabled = false;
     btn.textContent = '💾 Guardar Configuración';

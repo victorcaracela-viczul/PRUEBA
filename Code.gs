@@ -9,6 +9,8 @@ const CONFIG = {
   SHEET_RESULTADOS: 'RESULTADOS',
   SHEET_CONTENIDO: 'CONTENIDO_IA',
   GEMINI_API_KEY: 'AIzaSyALlrf-0Gys2i6S9yrV3CdWoVAHWoA7dkg',
+  OPENAI_API_KEY: '',
+  AI_PROVIDER: 'auto', // 'auto' | 'gemini' | 'openai'
   USE_REAL_API: true
 };
 
@@ -18,9 +20,18 @@ function loadConfig_() {
     const props = PropertiesService.getScriptProperties();
     const savedKey = props.getProperty('GEMINI_API_KEY');
     const savedSheet = props.getProperty('SPREADSHEET_ID');
+    const savedOpenAI = props.getProperty('OPENAI_API_KEY');
+    const savedProvider = props.getProperty('AI_PROVIDER');
     if (savedKey && savedKey !== 'TU_GEMINI_API_KEY_AQUI') {
       CONFIG.GEMINI_API_KEY = savedKey;
       CONFIG.USE_REAL_API = true;
+    }
+    if (savedOpenAI && savedOpenAI.startsWith('sk-')) {
+      CONFIG.OPENAI_API_KEY = savedOpenAI;
+      CONFIG.USE_REAL_API = true;
+    }
+    if (savedProvider) {
+      CONFIG.AI_PROVIDER = savedProvider;
     }
     if (savedSheet && savedSheet !== 'TU_SPREADSHEET_ID_AQUI') {
       CONFIG.SPREADSHEET_ID = savedSheet;
@@ -99,38 +110,81 @@ function getScoreHistory(dni) {
 function getWebAppUrl() { return ScriptApp.getService().getUrl(); }
 
 // ===== CONFIGURACIÓN DINÁMICA =====
-function saveConfigFromAdmin(apiKey, sheetId) {
+function saveConfigFromAdmin(apiKey, sheetId, openaiKey, aiProvider) {
   try {
     const props = PropertiesService.getScriptProperties();
     if (apiKey) props.setProperty('GEMINI_API_KEY', apiKey);
     if (sheetId) props.setProperty('SPREADSHEET_ID', sheetId);
+    if (openaiKey) props.setProperty('OPENAI_API_KEY', openaiKey);
+    if (aiProvider) props.setProperty('AI_PROVIDER', aiProvider);
+
     // Reload config immediately
     if (apiKey && apiKey !== 'TU_GEMINI_API_KEY_AQUI') {
       CONFIG.GEMINI_API_KEY = apiKey;
       CONFIG.USE_REAL_API = true;
     }
+    if (openaiKey && openaiKey.startsWith('sk-')) {
+      CONFIG.OPENAI_API_KEY = openaiKey;
+      CONFIG.USE_REAL_API = true;
+    }
+    if (aiProvider) {
+      CONFIG.AI_PROVIDER = aiProvider;
+    }
     if (sheetId && sheetId !== 'TU_SPREADSHEET_ID_AQUI') {
       CONFIG.SPREADSHEET_ID = sheetId;
     }
-    // Test connection
-    var status = { success: true, apiConnected: false, sheetConnected: false };
+
+    // Test connections
+    var status = { success: true, geminiConnected: false, openaiConnected: false, sheetConnected: false };
+
     // Test Sheet
     try {
       var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
       ss.getName();
       status.sheetConnected = true;
     } catch(e) { status.sheetError = e.message; }
+
     // Test Gemini
-    if (CONFIG.USE_REAL_API) {
+    var hasGemini = CONFIG.GEMINI_API_KEY && CONFIG.GEMINI_API_KEY !== 'TU_GEMINI_API_KEY_AQUI';
+    if (hasGemini) {
       try {
-        var testUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + CONFIG.GEMINI_API_KEY;
+        var testUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + CONFIG.GEMINI_API_KEY;
         var testPayload = { contents: [{ parts: [{ text: 'Responde solo: {"ok":true}' }] }], generationConfig: { maxOutputTokens: 20 } };
         var resp = UrlFetchApp.fetch(testUrl, { method: 'post', contentType: 'application/json', payload: JSON.stringify(testPayload), muteHttpExceptions: true });
         var code = resp.getResponseCode();
-        status.apiConnected = (code === 200);
-        if (code !== 200) status.apiError = 'HTTP ' + code + ': ' + resp.getContentText().substring(0, 200);
-      } catch(e) { status.apiError = e.message; }
+        status.geminiConnected = (code === 200);
+        if (code !== 200) status.geminiError = 'HTTP ' + code + ': ' + resp.getContentText().substring(0, 200);
+      } catch(e) { status.geminiError = e.message; }
     }
+
+    // Test OpenAI
+    var hasOpenAI = CONFIG.OPENAI_API_KEY && CONFIG.OPENAI_API_KEY.startsWith('sk-');
+    if (hasOpenAI) {
+      try {
+        var resp = UrlFetchApp.fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'post',
+          contentType: 'application/json',
+          headers: { 'Authorization': 'Bearer ' + CONFIG.OPENAI_API_KEY },
+          payload: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: 'Responde solo: {"ok":true}' }],
+            max_tokens: 20,
+            response_format: { type: 'json_object' }
+          }),
+          muteHttpExceptions: true
+        });
+        var code = resp.getResponseCode();
+        status.openaiConnected = (code === 200);
+        if (code !== 200) status.openaiError = 'HTTP ' + code + ': ' + resp.getContentText().substring(0, 200);
+      } catch(e) { status.openaiError = e.message; }
+    }
+
+    // Backward compatibility
+    status.apiConnected = status.geminiConnected || status.openaiConnected;
+    if (!status.apiConnected) {
+      status.apiError = [status.geminiError, status.openaiError].filter(Boolean).join(' | ') || 'Sin API Keys configuradas';
+    }
+
     return status;
   } catch(e) { return { success: false, error: e.message }; }
 }
@@ -139,15 +193,22 @@ function getConfigStatus() {
   try {
     var props = PropertiesService.getScriptProperties();
     var apiKey = props.getProperty('GEMINI_API_KEY') || CONFIG.GEMINI_API_KEY;
+    var openaiKey = props.getProperty('OPENAI_API_KEY') || CONFIG.OPENAI_API_KEY;
     var sheetId = props.getProperty('SPREADSHEET_ID') || CONFIG.SPREADSHEET_ID;
-    var hasKey = apiKey && apiKey !== 'TU_GEMINI_API_KEY_AQUI';
+    var aiProvider = props.getProperty('AI_PROVIDER') || CONFIG.AI_PROVIDER;
+    var hasGemini = apiKey && apiKey !== 'TU_GEMINI_API_KEY_AQUI';
+    var hasOpenAI = openaiKey && openaiKey.startsWith('sk-');
     var hasSheet = sheetId && sheetId !== 'TU_SPREADSHEET_ID_AQUI';
     return {
-      hasApiKey: hasKey,
-      apiKeyPreview: hasKey ? apiKey.substring(0, 8) + '...' : '',
+      hasApiKey: hasGemini || hasOpenAI,
+      hasGeminiKey: hasGemini,
+      hasOpenAIKey: hasOpenAI,
+      apiKeyPreview: hasGemini ? apiKey.substring(0, 8) + '...' : '',
+      openaiKeyPreview: hasOpenAI ? openaiKey.substring(0, 7) + '...' : '',
       hasSheetId: hasSheet,
       sheetIdPreview: hasSheet ? sheetId.substring(0, 12) + '...' : '',
-      useRealApi: hasKey
+      aiProvider: aiProvider,
+      useRealApi: hasGemini || hasOpenAI
     };
   } catch(e) { return { hasApiKey: false, hasSheetId: false, useRealApi: false }; }
 }
@@ -261,13 +322,228 @@ function callGeminiAI(prompt, fileData) {
   }
 }
 
-// Simple test function - called from Admin UI
-function testGeminiConnection() {
-  var result = callGeminiAI('Responde solo con este JSON exacto: {"ok":true,"message":"Conexión exitosa"}', null);
-  if (result.data && result.data.ok) {
-    return { success: true, message: 'Gemini AI funcionando correctamente.' };
+// ============================================================
+// 🤖 OPENAI (ChatGPT) ENGINE
+// ============================================================
+
+function callOpenAI(prompt, fileData) {
+  if (!CONFIG.OPENAI_API_KEY || !CONFIG.OPENAI_API_KEY.startsWith('sk-')) {
+    return { data: null, error: 'OpenAI API Key no configurada.' };
   }
-  return { success: false, message: result.error || 'Sin respuesta de Gemini.' };
+  try {
+    var messages = [];
+
+    // System message
+    messages.push({
+      role: 'system',
+      content: 'Eres un experto en Seguridad y Salud en el Trabajo (SST). Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin bloques Markdown.'
+    });
+
+    // User message with optional file
+    var userContent = [];
+
+    // If there's an image, add it (OpenAI supports base64 images via vision)
+    if (fileData && fileData.base64 && fileData.mimeType) {
+      var imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (imageTypes.indexOf(fileData.mimeType) !== -1) {
+        userContent.push({
+          type: 'image_url',
+          image_url: { url: 'data:' + fileData.mimeType + ';base64,' + fileData.base64 }
+        });
+        userContent.push({ type: 'text', text: prompt });
+      } else {
+        // For non-image files, decode text and append to prompt
+        try {
+          var decoded = Utilities.newBlob(Utilities.base64Decode(fileData.base64)).getDataAsString();
+          if (decoded && decoded.length > 10) {
+            userContent.push({ type: 'text', text: prompt + '\n\n--- CONTENIDO DEL DOCUMENTO ---\n' + decoded.substring(0, 15000) });
+          } else {
+            userContent.push({ type: 'text', text: prompt });
+          }
+        } catch(decErr) {
+          userContent.push({ type: 'text', text: prompt });
+        }
+      }
+    } else {
+      userContent.push({ type: 'text', text: prompt });
+    }
+
+    messages.push({ role: 'user', content: userContent });
+
+    var models = ['gpt-4o-mini', 'gpt-3.5-turbo'];
+
+    for (var m = 0; m < models.length; m++) {
+      var payload = {
+        model: models[m],
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 4096,
+        response_format: { type: 'json_object' }
+      };
+
+      // gpt-3.5-turbo doesn't support image_url, simplify content
+      if (models[m] === 'gpt-3.5-turbo') {
+        var simplifiedMessages = JSON.parse(JSON.stringify(messages));
+        for (var i = 0; i < simplifiedMessages.length; i++) {
+          if (Array.isArray(simplifiedMessages[i].content)) {
+            var textParts = simplifiedMessages[i].content.filter(function(p) { return p.type === 'text'; });
+            simplifiedMessages[i].content = textParts.map(function(p) { return p.text; }).join('\n');
+          }
+        }
+        payload.messages = simplifiedMessages;
+        delete payload.response_format; // gpt-3.5-turbo may not support json_object
+      }
+
+      var options = {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { 'Authorization': 'Bearer ' + CONFIG.OPENAI_API_KEY },
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      };
+
+      var response = UrlFetchApp.fetch('https://api.openai.com/v1/chat/completions', options);
+      var httpCode = response.getResponseCode();
+      var responseText = response.getContentText();
+      Logger.log('OPENAI HTTP ' + httpCode + ' (' + models[m] + '): ' + responseText.substring(0, 300));
+
+      if (httpCode === 404) continue; // Model not available, try next
+
+      if (httpCode !== 200) {
+        var errDetail = '';
+        try {
+          var errJson = JSON.parse(responseText);
+          errDetail = errJson.error ? errJson.error.message : responseText.substring(0, 200);
+        } catch(e) { errDetail = responseText.substring(0, 200); }
+
+        // If rate limited or server error on first model, try next
+        if ((httpCode === 429 || httpCode >= 500) && m < models.length - 1) {
+          continue;
+        }
+        return { data: null, error: 'OpenAI HTTP ' + httpCode + ' (' + models[m] + '): ' + errDetail };
+      }
+
+      // Parse response
+      var result = JSON.parse(responseText);
+      if (result.choices && result.choices[0] && result.choices[0].message) {
+        var text = result.choices[0].message.content;
+        Logger.log('RESPUESTA CRUDA DE OPENAI (' + models[m] + '): ' + text.substring(0, 500));
+
+        // Limpieza de Markdown
+        text = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
+        try {
+          return { data: JSON.parse(text), error: null };
+        } catch(e) {
+          var match = text.match(/\{[\s\S]*\}/);
+          if (match) {
+            try { return { data: JSON.parse(match[0]), error: null }; } catch(e2) {}
+          }
+          return { data: null, error: 'Error parseando JSON de OpenAI: ' + e.message + '. Respuesta: ' + text.substring(0, 300) };
+        }
+      }
+
+      return { data: null, error: 'OpenAI no generó respuesta.' };
+    }
+
+    return { data: null, error: 'Ningún modelo de OpenAI disponible.' };
+  } catch(err) {
+    return { data: null, error: 'Error de conexión con OpenAI: ' + err.message };
+  }
+}
+
+// ============================================================
+// 🔄 MOTOR IA UNIFICADO - Intenta Gemini, luego OpenAI
+// ============================================================
+
+function callAI(prompt, fileData) {
+  loadConfig_();
+
+  var hasGemini = CONFIG.GEMINI_API_KEY && CONFIG.GEMINI_API_KEY !== 'TU_GEMINI_API_KEY_AQUI';
+  var hasOpenAI = CONFIG.OPENAI_API_KEY && CONFIG.OPENAI_API_KEY.startsWith('sk-');
+
+  // Si el usuario eligió un proveedor específico
+  if (CONFIG.AI_PROVIDER === 'openai' && hasOpenAI) {
+    var result = callOpenAI(prompt, fileData);
+    if (result.data) return result;
+    // Si falla OpenAI y hay Gemini, intenta como fallback
+    if (hasGemini) {
+      Logger.log('OpenAI falló, intentando Gemini como fallback...');
+      return callGeminiAI(prompt, fileData);
+    }
+    return result;
+  }
+
+  if (CONFIG.AI_PROVIDER === 'gemini' && hasGemini) {
+    var result = callGeminiAI(prompt, fileData);
+    if (result.data) return result;
+    // Si falla Gemini y hay OpenAI, intenta como fallback
+    if (hasOpenAI) {
+      Logger.log('Gemini falló, intentando OpenAI como fallback...');
+      return callOpenAI(prompt, fileData);
+    }
+    return result;
+  }
+
+  // Modo 'auto': intenta Gemini primero, luego OpenAI
+  if (hasGemini) {
+    var geminiResult = callGeminiAI(prompt, fileData);
+    if (geminiResult.data) return geminiResult;
+    Logger.log('Gemini falló en modo auto: ' + geminiResult.error);
+
+    if (hasOpenAI) {
+      Logger.log('Intentando OpenAI como fallback...');
+      return callOpenAI(prompt, fileData);
+    }
+    return geminiResult;
+  }
+
+  if (hasOpenAI) {
+    return callOpenAI(prompt, fileData);
+  }
+
+  return { data: null, error: 'No hay API Key configurada. Configura Gemini y/o OpenAI en la pestaña Configuración.' };
+}
+
+// Simple test function - called from Admin UI
+function testAIConnection() {
+  loadConfig_();
+  var results = [];
+
+  // Test Gemini
+  var hasGemini = CONFIG.GEMINI_API_KEY && CONFIG.GEMINI_API_KEY !== 'TU_GEMINI_API_KEY_AQUI';
+  if (hasGemini) {
+    var gResult = callGeminiAI('Responde solo con este JSON exacto: {"ok":true,"message":"Conexión exitosa"}', null);
+    results.push({
+      provider: 'Gemini',
+      success: !!(gResult.data && gResult.data.ok),
+      message: gResult.data ? 'Conectado y funcionando' : (gResult.error || 'Sin respuesta')
+    });
+  }
+
+  // Test OpenAI
+  var hasOpenAI = CONFIG.OPENAI_API_KEY && CONFIG.OPENAI_API_KEY.startsWith('sk-');
+  if (hasOpenAI) {
+    var oResult = callOpenAI('Responde solo con este JSON exacto: {"ok":true,"message":"Conexión exitosa"}', null);
+    results.push({
+      provider: 'OpenAI',
+      success: !!(oResult.data && oResult.data.ok),
+      message: oResult.data ? 'Conectado y funcionando' : (oResult.error || 'Sin respuesta')
+    });
+  }
+
+  if (results.length === 0) {
+    return { success: false, message: 'No hay API Keys configuradas.' };
+  }
+
+  var anySuccess = results.some(function(r) { return r.success; });
+  var msgs = results.map(function(r) { return (r.success ? '✅' : '❌') + ' ' + r.provider + ': ' + r.message; });
+  return { success: anySuccess, message: msgs.join(' | '), details: results };
+}
+
+// Keep backward compatibility
+function testGeminiConnection() {
+  return testAIConnection();
 }
 
 // ===== UPLOAD CHUNKED PARA ARCHIVOS GRANDES =====
@@ -324,10 +600,10 @@ function processUploadedFile(fileBase64, fileName, mimeType, gameType) {
 
   var prompt = buildFilePrompt(gameType, fileName);
 
-  // Try Gemini AI
-  var aiResult = callGeminiAI(prompt, { base64: fileBase64, mimeType: mimeType });
+  // Try AI (Gemini → OpenAI fallback)
+  var aiResult = callAI(prompt, { base64: fileBase64, mimeType: mimeType });
 
-  // If Gemini returned data, validate it
+  // If AI returned data, validate it
   if (aiResult.data) {
     var geminiResult = aiResult.data;
     var isValid = false;
@@ -479,9 +755,9 @@ function getAIContent(gameType, params) {
     // 2) Try Gemini API
     try {
       var prompt = buildGenerationPrompt(gameType, params);
-      var aiResult = callGeminiAI(prompt, null);
+      var aiResult = callAI(prompt, null);
       if (aiResult.data) return aiResult.data;
-    } catch(e) { Logger.log('Gemini error: ' + e.message); }
+    } catch(e) { Logger.log('AI error: ' + e.message); }
     
     // 3) Fallback: ALWAYS return simulated data
     return simulateAIResponse(gameType, params || {});
@@ -499,7 +775,7 @@ function buildGenerationPrompt(gameType, params) {
 
 function getExplanationFromAI(context) {
   const prompt = `Explica en máximo 2 oraciones por qué "${context.correct}" es correcto en SST. El usuario eligió "${context.userAnswer}". Responde SOLO JSON: {"explanation":"tu explicación"}`;
-  const aiResult = callGeminiAI(prompt, null);
+  const aiResult = callAI(prompt, null);
   if (aiResult.data && aiResult.data.explanation) return aiResult.data;
   return { explanation: `Recuerda: "${context.correct}" es fundamental en SST para la prevención de accidentes laborales.` };
 }
