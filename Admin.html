@@ -148,13 +148,112 @@ body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;backg
 
   <!-- Tabs -->
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('upload', this)">📤 Generar Contenido</button>
+    <button class="tab active" onclick="switchTab('manual', this)">📊 Hojas Manuales</button>
+    <button class="tab" onclick="switchTab('upload', this)">📤 Generar con IA</button>
     <button class="tab" onclick="switchTab('content', this)">📋 Contenido Guardado</button>
     <button class="tab" onclick="switchTab('config', this)">🔧 Configuración IA</button>
   </div>
 
+  <!-- TAB: Manual Sheets -->
+  <div class="tab-content active" id="tab-manual">
+    <div class="upload-area">
+      <h4>📊 Contenido Manual — Sin IA, tú controlas los datos</h4>
+      <p style="color:var(--text-light);margin-bottom:16px;line-height:1.6">
+        Crea hojas de cálculo dedicadas para cada juego. Llena las columnas manualmente y los juegos leerán esos datos <strong>antes</strong> que cualquier contenido de IA.
+      </p>
+
+      <button class="btn-generate" onclick="crearHojasManuales()" id="btnCrearHojas" style="margin-bottom:20px">
+        📊 Crear Hojas en mi Google Sheet
+      </button>
+
+      <div class="result-card" id="manualResult" style="margin-bottom:20px">
+        <h5 id="manualResultTitle"></h5>
+        <p id="manualResultMsg"></p>
+      </div>
+
+      <div style="display:grid;gap:16px">
+        <!-- Quiz -->
+        <div style="background:var(--bg-card);border-radius:var(--radius-sm);padding:20px;box-shadow:var(--shadow);border-left:4px solid var(--purple)">
+          <h4 style="margin-bottom:8px">❓ Quiz_Manual</h4>
+          <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:10px">
+            <tr style="background:#f5f0ff"><th style="padding:6px;text-align:left;border:1px solid #e0d4f5">PREGUNTA</th><th style="padding:6px;border:1px solid #e0d4f5">OPCION_A</th><th style="padding:6px;border:1px solid #e0d4f5">OPCION_B</th><th style="padding:6px;border:1px solid #e0d4f5">OPCION_C</th><th style="padding:6px;border:1px solid #e0d4f5">OPCION_D</th><th style="padding:6px;border:1px solid #e0d4f5">CORRECTA</th><th style="padding:6px;border:1px solid #e0d4f5">EXPLICACION</th></tr>
+            <tr><td style="padding:6px;border:1px solid #eee">¿Altura mínima?</td><td style="padding:6px;border:1px solid #eee">1.00m</td><td style="padding:6px;border:1px solid #eee">1.50m</td><td style="padding:6px;border:1px solid #eee;background:#e8f5e9;font-weight:bold">1.80m</td><td style="padding:6px;border:1px solid #eee">2.50m</td><td style="padding:6px;border:1px solid #eee;text-align:center;font-weight:bold">3</td><td style="padding:6px;border:1px solid #eee;font-size:11px">Desde 1.80m...</td></tr>
+          </table>
+          <div style="font-size:13px;color:var(--text-light)">
+            <strong>CORRECTA:</strong> Pon 1, 2, 3 o 4 (número de la opción correcta).<br>
+            <strong>Mínimo:</strong> 3 preguntas. El juego toma hasta 10 al azar.
+          </div>
+        </div>
+
+        <!-- Mahjong -->
+        <div style="background:var(--bg-card);border-radius:var(--radius-sm);padding:20px;box-shadow:var(--shadow);border-left:4px solid var(--red)">
+          <h4 style="margin-bottom:8px">🀄 Mahjong_Manual</h4>
+          <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:10px">
+            <tr style="background:#ffebee"><th style="padding:6px;text-align:left;border:1px solid #f5c6cb">CONCEPTO (con emoji)</th><th style="padding:6px;text-align:left;border:1px solid #f5c6cb">DEFINICION</th></tr>
+            <tr><td style="padding:6px;border:1px solid #eee">🪖 Casco</td><td style="padding:6px;border:1px solid #eee">Protección craneal contra impactos</td></tr>
+          </table>
+          <div style="font-size:13px;color:var(--text-light)">
+            <strong>Mínimo:</strong> 6 pares. El juego toma hasta 12 al azar.<br>
+            <strong>Tip:</strong> Incluye un emoji al inicio del concepto para hacerlo visual.
+          </div>
+        </div>
+
+        <!-- Memoria -->
+        <div style="background:var(--bg-card);border-radius:var(--radius-sm);padding:20px;box-shadow:var(--shadow);border-left:4px solid var(--blue)">
+          <h4 style="margin-bottom:8px">🧠 Memoria_Manual</h4>
+          <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:10px">
+            <tr style="background:#e3f2fd"><th style="padding:6px;text-align:left;border:1px solid #b3d4fc">EMOJI</th><th style="padding:6px;text-align:left;border:1px solid #b3d4fc">CONCEPTO</th><th style="padding:6px;text-align:left;border:1px solid #b3d4fc">EXPLICACION</th></tr>
+            <tr><td style="padding:6px;border:1px solid #eee">🪖</td><td style="padding:6px;border:1px solid #eee">CASCO</td><td style="padding:6px;border:1px solid #eee;font-size:11px">El casco protege la cabeza...</td></tr>
+          </table>
+          <div style="font-size:13px;color:var(--text-light)">
+            <strong>Mínimo:</strong> 4 pares. El juego toma hasta 8 al azar.<br>
+            <strong>Tip:</strong> Concepto en MAYÚSCULAS. Un solo emoji por fila.
+          </div>
+        </div>
+
+        <!-- Drag & Drop -->
+        <div style="background:var(--bg-card);border-radius:var(--radius-sm);padding:20px;box-shadow:var(--shadow);border-left:4px solid var(--yellow)">
+          <h4 style="margin-bottom:8px">🎯 DragDrop_Manual</h4>
+          <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:10px">
+            <tr style="background:#fff8e1"><th style="padding:6px;text-align:left;border:1px solid #ffe082">CATEGORIA</th><th style="padding:6px;border:1px solid #ffe082">COLOR_HEX</th><th style="padding:6px;text-align:left;border:1px solid #ffe082">ELEMENTO</th><th style="padding:6px;text-align:left;border:1px solid #ffe082">EXPLICACION</th></tr>
+            <tr><td style="padding:6px;border:1px solid #eee">EPP Obligatorio</td><td style="padding:6px;border:1px solid #eee">#e74c3c</td><td style="padding:6px;border:1px solid #eee">Casco de seguridad</td><td style="padding:6px;border:1px solid #eee;font-size:11px">EPP craneal obligatorio</td></tr>
+            <tr><td style="padding:6px;border:1px solid #eee">Señalización</td><td style="padding:6px;border:1px solid #eee">#f39c12</td><td style="padding:6px;border:1px solid #eee">Señal prohibido fumar</td><td style="padding:6px;border:1px solid #eee;font-size:11px">Señal roja que prohíbe</td></tr>
+          </table>
+          <div style="font-size:13px;color:var(--text-light)">
+            <strong>Mínimo:</strong> 2 categorías, 4 elementos total.<br>
+            <strong>Tip:</strong> Repite el mismo nombre de CATEGORIA para agrupar. Usa colores hex diferentes por categoría.
+          </div>
+        </div>
+
+        <!-- Simulacion -->
+        <div style="background:var(--bg-card);border-radius:var(--radius-sm);padding:20px;box-shadow:var(--shadow);border-left:4px solid var(--green)">
+          <h4 style="margin-bottom:8px">🏗️ Simulacion_Manual</h4>
+          <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:10px">
+            <tr style="background:#e8f5e9"><th style="padding:6px;border:1px solid #a5d6a7">ESC_ID</th><th style="padding:6px;border:1px solid #a5d6a7">TITULO</th><th style="padding:6px;border:1px solid #a5d6a7">DESCRIPCION</th><th style="padding:6px;border:1px solid #a5d6a7">AMBIENTE</th><th style="padding:6px;border:1px solid #a5d6a7">PELIGRO</th><th style="padding:6px;border:1px solid #a5d6a7">SEVERIDAD</th><th style="padding:6px;border:1px solid #a5d6a7">X</th><th style="padding:6px;border:1px solid #a5d6a7">Y</th><th style="padding:6px;border:1px solid #a5d6a7">SOLUCION</th></tr>
+            <tr><td style="padding:6px;border:1px solid #eee">ESC1</td><td style="padding:6px;border:1px solid #eee;font-size:11px">Obra</td><td style="padding:6px;border:1px solid #eee;font-size:11px">Inspecciona...</td><td style="padding:6px;border:1px solid #eee;font-size:11px">construccion</td><td style="padding:6px;border:1px solid #eee;font-size:11px">Sin casco</td><td style="padding:6px;border:1px solid #eee">alta</td><td style="padding:6px;border:1px solid #eee">15</td><td style="padding:6px;border:1px solid #eee">25</td><td style="padding:6px;border:1px solid #eee;font-size:11px">Casco obligatorio</td></tr>
+          </table>
+          <div style="font-size:13px;color:var(--text-light)">
+            <strong>ESC_ID:</strong> Los peligros del mismo escenario comparten ID (ej: ESC1, ESC2).<br>
+            <strong>X, Y, ANCHO, ALTO:</strong> Son porcentajes (0-100) para posicionar la zona clickeable.<br>
+            <strong>SEVERIDAD:</strong> baja, media, alta o critica.
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;background:#fff8e1;border-radius:var(--radius-sm);padding:16px;border-left:4px solid var(--yellow)">
+        <h4 style="margin-bottom:6px">Prioridad de datos</h4>
+        <ol style="font-size:13px;color:var(--text-light);line-height:1.8;padding-left:20px">
+          <li><strong>Hojas manuales</strong> (Quiz_Manual, Mahjong_Manual, etc.) — Si tienen datos, se usan PRIMERO</li>
+          <li><strong>Contenido IA guardado</strong> (hoja CONTENIDO_IA) — Se usa si no hay datos manuales</li>
+          <li><strong>IA en tiempo real</strong> (Gemini/ChatGPT) — Se usa si no hay datos guardados</li>
+          <li><strong>Datos predeterminados</strong> — Respaldo final si nada funciona</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB: Upload & Generate -->
-  <div class="tab-content active" id="tab-upload">
+  <div class="tab-content" id="tab-upload">
     <div class="upload-area">
       <h4>📤 Subir Archivo para IA</h4>
       
@@ -740,6 +839,43 @@ function testConnection() {
   } catch(e) {
     btn.disabled = false;
     btn.textContent = '🧪 Probar Conexión Gemini';
+    alert('Requiere estar desplegada en Google Apps Script.');
+  }
+}
+
+function crearHojasManuales() {
+  var btn = document.getElementById('btnCrearHojas');
+  var result = document.getElementById('manualResult');
+  btn.disabled = true;
+  btn.textContent = '⏳ Creando hojas...';
+  result.classList.remove('show', 'error');
+
+  try {
+    google.script.run
+      .withSuccessHandler(function(r) {
+        btn.disabled = false;
+        btn.textContent = '📊 Crear Hojas en mi Google Sheet';
+        result.classList.add('show');
+        if (r && r.success) {
+          document.getElementById('manualResultTitle').textContent = '✅ ¡Listo!';
+          document.getElementById('manualResultMsg').innerHTML = r.message + '<br><br>Abre tu Google Sheet y verás las nuevas hojas con ejemplos. Solo llena las filas y los juegos usarán tus datos.';
+        } else {
+          result.classList.add('error');
+          document.getElementById('manualResultTitle').textContent = '❌ Error';
+          document.getElementById('manualResultMsg').textContent = r ? r.error : 'Error desconocido';
+        }
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled = false;
+        btn.textContent = '📊 Crear Hojas en mi Google Sheet';
+        result.classList.add('show', 'error');
+        document.getElementById('manualResultTitle').textContent = '❌ Error de conexión';
+        document.getElementById('manualResultMsg').textContent = err ? (err.message || String(err)) : 'No se pudo conectar.';
+      })
+      .crearHojasManuales();
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '📊 Crear Hojas en mi Google Sheet';
     alert('Requiere estar desplegada en Google Apps Script.');
   }
 }

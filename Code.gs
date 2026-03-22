@@ -732,7 +732,16 @@ function saveGeneratedContent(gameType, data, source) {
 function getAIContent(gameType, params) {
   // SAFETY: This function must NEVER return null
   try {
-    // 1) Try saved content from sheet
+    // 1) PRIMERO: Intentar hojas manuales (datos ingresados por humano)
+    try {
+      var manualData = leerDatosManual(gameType);
+      if (manualData) {
+        Logger.log('Usando datos MANUALES para: ' + gameType);
+        return manualData;
+      }
+    } catch(e) { Logger.log('Manual data error: ' + e.message); }
+
+    // 2) Intentar contenido guardado por IA en hoja CONTENIDO_IA
     try {
       var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
       var sh = ss.getSheetByName(CONFIG.SHEET_CONTENIDO);
@@ -751,19 +760,18 @@ function getAIContent(gameType, params) {
         }
       }
     } catch(e) { Logger.log('Saved content error: ' + e.message); }
-    
-    // 2) Try Gemini API
+
+    // 3) Intentar Gemini/OpenAI API
     try {
       var prompt = buildGenerationPrompt(gameType, params);
       var aiResult = callAI(prompt, null);
       if (aiResult.data) return aiResult.data;
     } catch(e) { Logger.log('AI error: ' + e.message); }
-    
-    // 3) Fallback: ALWAYS return simulated data
+
+    // 4) Fallback: datos predeterminados
     return simulateAIResponse(gameType, params || {});
-    
+
   } catch(finalErr) {
-    // 4) Ultimate safety net - return hardcoded minimal data
     Logger.log('CRITICAL fallback: ' + finalErr.message);
     return simulateAIResponse(gameType, {});
   }
@@ -915,6 +923,261 @@ function genQuiz() {
     {question:"¿Qué contiene la Hoja MSDS?",options:["Manual seguridad","Datos seguridad sustancias","Mapa señalización","Método supervisión"],correct:1,explanation:"MSDS: propiedades, peligros, manejo de sustancias químicas."},
   ];
   return { questions: pool.sort(() => Math.random()-0.5).slice(0,10).map((q,i) => ({id:i+1,...q})) };
+}
+
+// ============================================================
+// 📊 HOJAS MANUALES - Crear y leer contenido manual por juego
+// ============================================================
+
+function crearHojasManuales() {
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var creadas = [];
+
+    // --- QUIZ ---
+    if (!ss.getSheetByName('Quiz_Manual')) {
+      var sh = ss.insertSheet('Quiz_Manual');
+      sh.appendRow(['PREGUNTA','OPCION_A','OPCION_B','OPCION_C','OPCION_D','CORRECTA (1-4)','EXPLICACION']);
+      sh.getRange(1,1,1,7).setFontWeight('bold').setBackground('#7c4dff').setFontColor('#fff');
+      sh.setColumnWidth(1, 300); sh.setColumnWidth(7, 300);
+      for (var c = 2; c <= 5; c++) sh.setColumnWidth(c, 180);
+      sh.setColumnWidth(6, 120);
+      // Ejemplo
+      sh.appendRow(['¿Altura mínima para trabajo en altura?','1.00 m','1.50 m','1.80 m','2.50 m','3','Desde 1.80m sobre el nivel del piso.']);
+      sh.appendRow(['¿Qué indica señal triangular amarilla?','Prohibición','Advertencia','Obligación','Emergencia','2','Triángulo amarillo = ADVERTENCIA.']);
+      // Validación columna CORRECTA
+      var rule = SpreadsheetApp.newDataValidation().requireNumberBetween(1,4).setHelpText('Ingresa 1, 2, 3 o 4').build();
+      sh.getRange(2, 6, 100, 1).setDataValidation(rule);
+      creadas.push('Quiz_Manual');
+    }
+
+    // --- MAHJONG ---
+    if (!ss.getSheetByName('Mahjong_Manual')) {
+      var sh = ss.insertSheet('Mahjong_Manual');
+      sh.appendRow(['CONCEPTO (con emoji)','DEFINICION (máx 8 palabras)']);
+      sh.getRange(1,1,1,2).setFontWeight('bold').setBackground('#e74c3c').setFontColor('#fff');
+      sh.setColumnWidth(1, 250); sh.setColumnWidth(2, 350);
+      sh.appendRow(['🪖 Casco','Protección craneal contra impactos']);
+      sh.appendRow(['🥽 Gafas','Protección ocular ante partículas']);
+      sh.appendRow(['🧤 Guantes','Protección de manos contra químicos']);
+      sh.appendRow(['👂 Tapones','Reducción de ruido mayor a 85dB']);
+      creadas.push('Mahjong_Manual');
+    }
+
+    // --- MEMORIA ---
+    if (!ss.getSheetByName('Memoria_Manual')) {
+      var sh = ss.insertSheet('Memoria_Manual');
+      sh.appendRow(['EMOJI','CONCEPTO (MAYÚSCULAS)','EXPLICACION']);
+      sh.getRange(1,1,1,3).setFontWeight('bold').setBackground('#1e88e5').setFontColor('#fff');
+      sh.setColumnWidth(1, 80); sh.setColumnWidth(2, 220); sh.setColumnWidth(3, 400);
+      sh.appendRow(['🪖','CASCO','El casco protege la cabeza contra impactos. Obligatorio en obra.']);
+      sh.appendRow(['🥽','GAFAS','Protegen los ojos contra partículas y salpicaduras.']);
+      sh.appendRow(['🧤','GUANTES','Protegen manos contra cortes y productos químicos.']);
+      creadas.push('Memoria_Manual');
+    }
+
+    // --- DRAG & DROP ---
+    if (!ss.getSheetByName('DragDrop_Manual')) {
+      var sh = ss.insertSheet('DragDrop_Manual');
+      sh.appendRow(['CATEGORIA','COLOR_HEX','ELEMENTO','EXPLICACION']);
+      sh.getRange(1,1,1,4).setFontWeight('bold').setBackground('#f39c12').setFontColor('#fff');
+      sh.setColumnWidth(1, 200); sh.setColumnWidth(2, 100); sh.setColumnWidth(3, 250); sh.setColumnWidth(4, 350);
+      sh.appendRow(['EPP Obligatorio','#e74c3c','Casco de seguridad','EPP de protección craneal obligatorio en obra.']);
+      sh.appendRow(['EPP Obligatorio','#e74c3c','Arnés anticaídas','EPP obligatorio sobre 1.80m de altura.']);
+      sh.appendRow(['EPP Obligatorio','#e74c3c','Guantes dieléctricos','EPP contra descargas eléctricas.']);
+      sh.appendRow(['Señalización','#f39c12','Señal prohibido fumar','Señal roja que prohíbe fumar en el área.']);
+      sh.appendRow(['Señalización','#f39c12','Triángulo amarillo','Señal de advertencia sobre peligro.']);
+      sh.appendRow(['Señalización','#f39c12','Flecha verde evacuación','Indica dirección de escape.']);
+      sh.appendRow(['Procedimiento','#3498db','Permiso trabajo caliente','Documento requerido antes de soldadura.']);
+      sh.appendRow(['Procedimiento','#3498db','Análisis Trabajo Seguro','Documento con pasos, peligros y controles.']);
+      sh.appendRow(['Procedimiento','#3498db','Bloqueo LOTO','Aislamiento de energías en mantenimiento.']);
+      // Nota en celda F1
+      sh.getRange('F1').setValue('INSTRUCCIONES: Usa la misma CATEGORIA para agrupar. 3 categorías, 3 elementos c/u = 9 filas mínimo.');
+      sh.getRange('F1').setFontWeight('bold').setFontColor('#e74c3c');
+      creadas.push('DragDrop_Manual');
+    }
+
+    // --- SIMULACION ---
+    if (!ss.getSheetByName('Simulacion_Manual')) {
+      var sh = ss.insertSheet('Simulacion_Manual');
+      sh.appendRow(['ESCENARIO_ID','TITULO','DESCRIPCION_ESCENARIO','AMBIENTE','NOMBRE_PELIGRO','DESC_PELIGRO','SEVERIDAD','X','Y','ANCHO','ALTO','SOLUCION']);
+      sh.getRange(1,1,1,12).setFontWeight('bold').setBackground('#27ae60').setFontColor('#fff');
+      sh.setColumnWidth(1, 100); sh.setColumnWidth(2, 200); sh.setColumnWidth(3, 300); sh.setColumnWidth(4, 120);
+      sh.setColumnWidth(5, 200); sh.setColumnWidth(6, 250); sh.setColumnWidth(7, 100);
+      sh.setColumnWidth(12, 300);
+      // Validación severidad
+      var sevRule = SpreadsheetApp.newDataValidation().requireValueInList(['baja','media','alta','critica']).build();
+      sh.getRange(2, 7, 100, 1).setDataValidation(sevRule);
+      // Ejemplo: un escenario con 3 peligros
+      sh.appendRow(['ESC1','Obra de Construcción','Inspecciona esta obra. Busca condiciones inseguras.','construccion','Trabajador sin casco','Obrero sin protección craneal','alta','15','25','14','18','Detener actividad. Casco es EPP obligatorio.']);
+      sh.appendRow(['ESC1','Obra de Construcción','','construccion','Andamio sin barandas','Plataforma sin protección','alta','50','12','22','14','Instalar barandas a 1.05m.']);
+      sh.appendRow(['ESC1','Obra de Construcción','','construccion','Cables expuestos','Cableado sin protección','alta','72','55','12','20','Canaletas + conexiones GFCI.']);
+      // Nota
+      sh.getRange('N1').setValue('INSTRUCCIONES: Peligros del mismo escenario comparten ESCENARIO_ID. X,Y,ANCHO,ALTO son % (0-100).');
+      sh.getRange('N1').setFontWeight('bold').setFontColor('#e74c3c');
+      creadas.push('Simulacion_Manual');
+    }
+
+    if (creadas.length === 0) {
+      return { success: true, message: 'Las hojas ya existían. No se crearon nuevas.' };
+    }
+    return { success: true, message: 'Hojas creadas: ' + creadas.join(', '), hojas: creadas };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// ===== LEER DATOS MANUALES POR JUEGO =====
+
+function leerDatosManualQuiz() {
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var sh = ss.getSheetByName('Quiz_Manual');
+    if (!sh || sh.getLastRow() < 2) return null;
+    var data = sh.getDataRange().getValues();
+    var questions = [];
+    for (var i = 1; i < data.length; i++) {
+      if (!data[i][0] || String(data[i][0]).trim() === '') continue;
+      var correcta = parseInt(data[i][5]);
+      if (isNaN(correcta) || correcta < 1 || correcta > 4) correcta = 1;
+      questions.push({
+        id: questions.length + 1,
+        question: String(data[i][0]).trim(),
+        options: [String(data[i][1]).trim(), String(data[i][2]).trim(), String(data[i][3]).trim(), String(data[i][4]).trim()],
+        correct: correcta - 1, // Convertir 1-4 a índice 0-3
+        explanation: String(data[i][6] || '').trim()
+      });
+    }
+    if (questions.length < 3) return null;
+    // Barajar y tomar hasta 10
+    questions.sort(function() { return Math.random() - 0.5; });
+    return { questions: questions.slice(0, 10) };
+  } catch(e) { Logger.log('Manual quiz error: ' + e.message); return null; }
+}
+
+function leerDatosManualMahjong() {
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var sh = ss.getSheetByName('Mahjong_Manual');
+    if (!sh || sh.getLastRow() < 2) return null;
+    var data = sh.getDataRange().getValues();
+    var pairs = [];
+    for (var i = 1; i < data.length; i++) {
+      if (!data[i][0] || String(data[i][0]).trim() === '') continue;
+      pairs.push({
+        id: pairs.length + 1,
+        concept: String(data[i][0]).trim(),
+        match: String(data[i][1]).trim()
+      });
+    }
+    if (pairs.length < 6) return null;
+    pairs.sort(function() { return Math.random() - 0.5; });
+    return { pairs: pairs.slice(0, 12) };
+  } catch(e) { Logger.log('Manual mahjong error: ' + e.message); return null; }
+}
+
+function leerDatosManualMemoria() {
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var sh = ss.getSheetByName('Memoria_Manual');
+    if (!sh || sh.getLastRow() < 2) return null;
+    var data = sh.getDataRange().getValues();
+    var pairs = [];
+    for (var i = 1; i < data.length; i++) {
+      if (!data[i][0] || String(data[i][0]).trim() === '') continue;
+      pairs.push({
+        id: pairs.length + 1,
+        front: String(data[i][0]).trim(),
+        back: String(data[i][1]).trim(),
+        explanation: String(data[i][2] || '').trim()
+      });
+    }
+    if (pairs.length < 4) return null;
+    pairs.sort(function() { return Math.random() - 0.5; });
+    return { pairs: pairs.slice(0, 8) };
+  } catch(e) { Logger.log('Manual memoria error: ' + e.message); return null; }
+}
+
+function leerDatosManualDragDrop() {
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var sh = ss.getSheetByName('DragDrop_Manual');
+    if (!sh || sh.getLastRow() < 2) return null;
+    var data = sh.getDataRange().getValues();
+    var catMap = {}; // {nombre: color}
+    var items = [];
+    for (var i = 1; i < data.length; i++) {
+      if (!data[i][0] || String(data[i][0]).trim() === '') continue;
+      var catName = String(data[i][0]).trim();
+      var color = String(data[i][1] || '#3498db').trim();
+      if (!catMap[catName]) catMap[catName] = color;
+      items.push({
+        id: items.length + 1,
+        text: String(data[i][2]).trim(),
+        category: catName,
+        explanation: String(data[i][3] || '').trim()
+      });
+    }
+    var categories = [];
+    for (var name in catMap) {
+      categories.push({ name: name, color: catMap[name] });
+    }
+    if (categories.length < 2 || items.length < 4) return null;
+    items.sort(function() { return Math.random() - 0.5; });
+    return { categories: categories, items: items };
+  } catch(e) { Logger.log('Manual dragdrop error: ' + e.message); return null; }
+}
+
+function leerDatosManualSimulacion() {
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var sh = ss.getSheetByName('Simulacion_Manual');
+    if (!sh || sh.getLastRow() < 2) return null;
+    var data = sh.getDataRange().getValues();
+    var escenarios = {}; // {escId: {scenario:{}, hazards:[]}}
+    for (var i = 1; i < data.length; i++) {
+      if (!data[i][0] || String(data[i][0]).trim() === '') continue;
+      var escId = String(data[i][0]).trim();
+      if (!escenarios[escId]) {
+        escenarios[escId] = {
+          scenario: {
+            title: String(data[i][1]).trim(),
+            description: String(data[i][2]).trim(),
+            environment: String(data[i][3]).trim()
+          },
+          hazards: []
+        };
+      }
+      escenarios[escId].hazards.push({
+        id: escenarios[escId].hazards.length + 1,
+        name: String(data[i][4]).trim(),
+        description: String(data[i][5] || '').trim(),
+        severity: String(data[i][6] || 'media').trim(),
+        x: parseInt(data[i][7]) || 20,
+        y: parseInt(data[i][8]) || 20,
+        width: parseInt(data[i][9]) || 15,
+        height: parseInt(data[i][10]) || 15,
+        solution: String(data[i][11] || '').trim()
+      });
+    }
+    var keys = Object.keys(escenarios);
+    if (keys.length === 0) return null;
+    // Elegir uno al azar
+    var picked = escenarios[keys[Math.floor(Math.random() * keys.length)]];
+    return picked;
+  } catch(e) { Logger.log('Manual simulacion error: ' + e.message); return null; }
+}
+
+// ===== Función unificada: leer manual por tipo =====
+function leerDatosManual(gameType) {
+  switch(gameType) {
+    case 'quiz': return leerDatosManualQuiz();
+    case 'mahjong': return leerDatosManualMahjong();
+    case 'memoria': return leerDatosManualMemoria();
+    case 'dragdrop': return leerDatosManualDragDrop();
+    case 'simulacion': return leerDatosManualSimulacion();
+    default: return null;
+  }
 }
 
 function genSimulacion() {
