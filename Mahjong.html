@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SST GameHub - Mahjong</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--orange:#ff6b35;--orange-light:#fff3ed;--blue:#1e88e5;--blue-light:#e3f2fd;--green:#43a047;--green-light:#e8f5e9;--red:#e53935;--red-light:#ffebee;--purple:#7c4dff;--yellow:#ffb300;--bg:#faf7f4;--card:#ffffff;--text:#2d3436;--text-light:#636e72;--shadow:0 2px 12px rgba(0,0,0,0.06);--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;background:var(--card);padding:10px 16px;box-shadow:var(--shadow);flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:50}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.btn-back{background:var(--orange-light);border:none;border-radius:10px;padding:8px 14px;color:var(--orange);font-family:'Nunito';font-weight:700;font-size:13px;cursor:pointer;transition:all 0.3s}
+.btn-back:hover{background:var(--orange);color:#fff}
+.topbar-left h1{font-family:'Fredoka';font-size:18px;color:var(--orange)}
+.stats{display:flex;gap:16px}
+.stat{text-align:center}
+.stat .v{font-family:'Fredoka';font-size:22px;font-weight:700}
+.stat .l{font-size:10px;color:var(--text-light);text-transform:uppercase;font-weight:700}
+.actions{display:flex;gap:6px}
+.btn-sm{background:#f1f3f5;border:2px solid #e9ecef;border-radius:10px;padding:8px 14px;font-family:'Nunito';font-weight:700;font-size:12px;cursor:pointer;transition:all 0.3s;color:var(--text)}
+.btn-sm:hover{background:var(--blue-light);border-color:var(--blue);color:var(--blue)}
+.btn-sm.hint{color:var(--yellow);border-color:rgba(255,179,0,0.3)}
+.btn-sm.hint:hover{background:rgba(255,179,0,0.1)}
+
+/* Loading */
+.loading{position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading.hidden{display:none}
+.ld-spinner{width:50px;height:50px;border:4px solid #e9ecef;border-top-color:var(--orange);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ld-text{font-family:'Fredoka';font-size:16px;color:var(--orange)}
+
+/* Board */
+.game-area{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 60px);padding:16px}
+.board{position:relative;width:860px;height:520px}
+
+/* Tiles */
+.tile{
+  position:absolute;width:88px;height:68px;border-radius:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  font-size:11px;font-weight:700;padding:5px;line-height:1.15;
+  transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);user-select:none;
+  background:var(--card);border:2px solid #e9ecef;
+  box-shadow:3px 3px 0 #ddd,0 2px 8px rgba(0,0,0,0.06);
+}
+.tile .emoji{font-size:18px;display:block;margin-bottom:1px}
+.tile .txt{font-size:9.5px;line-height:1.1;max-height:40px;overflow:hidden}
+.tile.concept{border-top:3px solid var(--blue)}
+.tile.match{border-top:3px solid var(--purple)}
+.tile:hover:not(.blocked):not(.matched){transform:translateY(-4px);box-shadow:3px 6px 0 #ddd,0 4px 16px rgba(0,0,0,0.1);border-color:var(--blue)}
+.tile.blocked{opacity:0.35;cursor:not-allowed;filter:grayscale(0.3)}
+.tile.selected{border-color:var(--green)!important;box-shadow:0 0 0 3px rgba(67,160,71,0.2),3px 3px 0 #ddd;transform:translateY(-4px);animation:selPulse 1.2s ease infinite}
+@keyframes selPulse{0%,100%{box-shadow:0 0 0 3px rgba(67,160,71,0.2),3px 3px 0 #ddd}50%{box-shadow:0 0 0 6px rgba(67,160,71,0.1),3px 3px 0 #ddd}}
+.tile.matched{animation:matchPop .5s ease forwards;pointer-events:none}
+@keyframes matchPop{0%{transform:scale(1);opacity:1}50%{transform:scale(1.15);opacity:.8;border-color:var(--green)}100%{transform:scale(0);opacity:0}}
+.tile.wrong{animation:wrongShake .5s ease;border-color:var(--red)!important;box-shadow:0 0 0 3px rgba(229,57,53,0.2)}
+@keyframes wrongShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* Feedback */
+.feedback{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--card);border-radius:var(--radius);padding:14px 24px;box-shadow:0 4px 20px rgba(0,0,0,0.12);z-index:60;max-width:460px;text-align:center;display:none;animation:fbIn .3s ease}
+.feedback.show{display:block}
+@keyframes fbIn{from{transform:translateX(-50%) translateY(16px);opacity:0}to{transform:translateX(-50%);opacity:1}}
+.feedback.success{border-left:4px solid var(--green)}
+.feedback.error{border-left:4px solid var(--red)}
+.feedback h4{font-family:'Fredoka';font-size:14px;margin-bottom:3px}
+.feedback.success h4{color:var(--green)}
+.feedback.error h4{color:var(--red)}
+.feedback p{font-size:12px;color:var(--text-light);line-height:1.3}
+
+/* Win Modal */
+.modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+.modal-bg.show{display:flex}
+.modal{background:var(--card);border-radius:24px;padding:36px;text-align:center;max-width:400px;width:90%;animation:popIn .5s cubic-bezier(0.34,1.56,0.64,1);box-shadow:0 10px 40px rgba(0,0,0,0.15)}
+@keyframes popIn{from{transform:scale(.85);opacity:0}}
+.modal .trophy{font-size:56px;margin-bottom:12px}
+.modal h2{font-family:'Fredoka';font-size:22px;color:var(--green);margin-bottom:8px}
+.modal .info{color:var(--text-light);font-size:14px;margin-bottom:18px;line-height:1.6}
+.modal .info strong{color:var(--orange);font-family:'Fredoka'}
+.modal-btns{display:flex;gap:10px;justify-content:center}
+.modal-btns button{padding:12px 22px;border-radius:12px;font-family:'Fredoka';font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .3s}
+.modal-btns .btn-primary{background:linear-gradient(135deg,var(--orange),var(--yellow));color:#fff;box-shadow:0 3px 12px rgba(255,107,53,0.3)}
+.modal-btns .btn-secondary{background:#f1f3f5;color:var(--text)}
+
+@media(max-width:900px){.board{transform:scale(0.65);transform-origin:top center}}
+@media(max-width:550px){.board{transform:scale(0.4);transform-origin:top center}.topbar{justify-content:center}}
+</style>
+</head>
+<body>
+
+<div class="loading" id="loadingScreen"><div class="ld-spinner"></div><div class="ld-text">Generando fichas con IA... 🤖</div></div>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <button class="btn-back" onclick="goBack()">← Volver</button>
+    <h1>🀄 Mahjong SST</h1>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="v" id="score" style="color:var(--green)">0</div><div class="l">Puntaje</div></div>
+    <div class="stat"><div class="v" id="pairs" style="color:var(--blue)">0/0</div><div class="l">Parejas</div></div>
+    <div class="stat"><div class="v" id="timer" style="color:var(--orange)">0:00</div><div class="l">Tiempo</div></div>
+  </div>
+  <div class="actions">
+    <button class="btn-sm hint" onclick="showHint()">💡 Pista</button>
+    <button class="btn-sm" onclick="shuffleTiles()">🔀 Mezclar</button>
+    <button class="btn-sm" onclick="startGame()">🔄 Nuevo</button>
+  </div>
+</div>
+
+<div class="game-area"><div class="board" id="board"></div></div>
+<div class="feedback" id="feedback"><h4 id="fbTitle"></h4><p id="fbText"></p></div>
+
+<div class="modal-bg" id="winModal">
+  <div class="modal">
+    <div class="trophy">🏆</div>
+    <h2>¡Completado!</h2>
+    <div class="info" id="winInfo"></div>
+    <div class="modal-btns">
+      <button class="btn-secondary" onclick="goBack()">← Menú</button>
+      <button class="btn-primary" onclick="startGame();document.getElementById('winModal').classList.remove('show')">Jugar de nuevo ▶</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let gameData=null,tiles=[],selectedTile=null,matchedCount=0,totalPairs=0,score=0,timerInt=null,seconds=0,hints=0,currentUser=null;
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const s=sessionStorage.getItem('sst_user');if(s)currentUser=JSON.parse(s);
+  startGame();
+});
+
+async function getDataFromAI(){
+  return new Promise(resolve=>{
+    try{google.script.run
+      .withSuccessHandler(function(d){
+        if(d && d.pairs) resolve(d);
+        else resolve(simAI());
+      })
+      .withFailureHandler(function(){resolve(simAI())})
+      .getAIContent('mahjong',{pairs:12})}
+    catch(e){resolve(simAI())}
+  });
+}
+
+function simAI(){
+  const all=[
+    {concept:"🪖 Casco",match:"Protección craneal"},{concept:"🥽 Gafas",match:"Protección ocular"},
+    {concept:"🧤 Guantes",match:"Protección de manos"},{concept:"👂 Tapones",match:"Reducir ruido >85dB"},
+    {concept:"🦺 Chaleco",match:"Visibilidad en tránsito"},{concept:"😷 Respirador",match:"Filtrar partículas 95%"},
+    {concept:"👢 Botas acero",match:"Contra aplastamiento"},{concept:"🔗 Arnés",match:"Prevenir caídas"},
+    {concept:"🔴 Prohibición",match:"Acción NO permitida"},{concept:"🟡 Advertencia",match:"Alerta de peligro"},
+    {concept:"🔵 Obligación",match:"Acción obligatoria"},{concept:"🟢 Evacuación",match:"Ruta de escape"},
+    {concept:"⚡ Eléctrico",match:"Contacto con corriente"},{concept:"🔥 Incendio",match:"Material inflamable"},
+    {concept:"📋 IPERC",match:"Identificar Peligros"},{concept:"🔒 LOTO",match:"Bloqueo de energía"},
+  ];
+  return{pairs:all.sort(()=>Math.random()-.5).slice(0,12).map((p,i)=>({id:i+1,...p}))};
+}
+
+function genLayout(n){
+  const pos=[];const tW=93,tH=73,gX=5,gY=5,oX=40,oY=20;
+  for(let r=0;r<4;r++)for(let c=0;c<6;c++)pos.push({x:oX+c*(tW+gX),y:oY+r*(tH+gY),layer:0,row:r,col:c});
+  while(pos.length>n)pos.splice(Math.floor(Math.random()*pos.length),1);
+  return pos;
+}
+
+function isFree(tile,all){
+  const active=all.filter(t=>!t.matched&&t!==tile);
+  if(active.some(t=>t.layer>tile.layer&&Math.abs(t.x-tile.x)<80&&Math.abs(t.y-tile.y)<60))return false;
+  const lb=active.some(t=>t.layer===tile.layer&&Math.abs(t.y-tile.y)<60&&t.x<tile.x&&(tile.x-t.x)<93);
+  const rb=active.some(t=>t.layer===tile.layer&&Math.abs(t.y-tile.y)<60&&t.x>tile.x&&(t.x-tile.x)<93);
+  return!(lb&&rb);
+}
+
+async function startGame(){
+  selectedTile=null;matchedCount=0;score=0;seconds=0;hints=0;
+  if(timerInt)clearInterval(timerInt);
+  document.getElementById('score').textContent='0';
+  document.getElementById('feedback').classList.remove('show');
+  document.getElementById('loadingScreen').classList.remove('hidden');
+
+  gameData=await getDataFromAI();
+  totalPairs=gameData.pairs.length;
+  document.getElementById('pairs').textContent='0/'+totalPairs;
+
+  const td=[];
+  gameData.pairs.forEach(p=>{
+    td.push({pairId:p.id,type:'concept',text:p.concept,pair:p});
+    td.push({pairId:p.id,type:'match',text:p.match,pair:p});
+  });
+  for(let i=td.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[td[i],td[j]]=[td[j],td[i]]}
+
+  const positions=genLayout(td.length);
+  tiles=td.map((d,i)=>({...d,...positions[i%positions.length],matched:false,el:null,idx:i}));
+
+  renderBoard();
+  setTimeout(()=>{document.getElementById('loadingScreen').classList.add('hidden');startTimer()},900);
+}
+
+function renderBoard(){
+  const b=document.getElementById('board');b.innerHTML='';
+  tiles.forEach((t,i)=>{
+    if(t.matched)return;
+    const el=document.createElement('div');
+    el.className='tile '+(t.type==='concept'?'concept':'match');
+    el.style.left=t.x+'px';el.style.top=t.y+'px';el.style.zIndex=t.layer*10+5;
+
+    const parts=t.text.split(' ');
+    const hasEmoji=/[\u{1F300}-\u{1FAFF}]/u.test(parts[0]);
+    el.innerHTML=hasEmoji?`<div><span class="emoji">${parts[0]}</span><span class="txt">${parts.slice(1).join(' ')}</span></div>`:`<div><span class="txt">${t.text}</span></div>`;
+
+    el.onclick=()=>handleClick(t,el);
+    t.el=el;b.appendChild(el);
+    el.style.opacity='0';el.style.transform='scale(0.5)';
+    setTimeout(()=>{el.style.transition='all 0.3s cubic-bezier(0.34,1.56,0.64,1)';el.style.opacity='1';el.style.transform='scale(1)'},i*25+80);
+  });
+  updateBlocked();
+}
+
+function updateBlocked(){tiles.forEach(t=>{if(t.matched||!t.el)return;t.el.classList.toggle('blocked',!isFree(t,tiles))})}
+
+function handleClick(t,el){
+  if(t.matched||el.classList.contains('blocked'))return;
+  if(selectedTile===t){el.classList.remove('selected');selectedTile=null;return}
+  if(!selectedTile){selectedTile=t;el.classList.add('selected')}
+  else{
+    if(selectedTile.pairId===t.pairId&&selectedTile.type!==t.type)matchOk(selectedTile,t);
+    else matchFail(selectedTile,t,el);
+  }
+}
+
+function matchOk(t1,t2){
+  t1.matched=true;t2.matched=true;matchedCount++;
+  score+=Math.max(100-Math.floor(seconds/5),10);
+  t1.el.classList.remove('selected');t1.el.classList.add('matched');t2.el.classList.add('matched');
+  setTimeout(()=>{t1.el&&t1.el.remove();t2.el&&t2.el.remove();updateBlocked()},500);
+  document.getElementById('score').textContent=score;
+  document.getElementById('pairs').textContent=matchedCount+'/'+totalPairs;
+  showFB('success','✅ ¡Correcto!',t1.pair.concept+' = '+t1.pair.match);
+  selectedTile=null;
+  if(matchedCount>=totalPairs)setTimeout(endGame,700);
+}
+
+function matchFail(t1,t2,el2){
+  t1.el.classList.remove('selected');t1.el.classList.add('wrong');el2.classList.add('wrong');
+  score=Math.max(0,score-15);document.getElementById('score').textContent=score;
+  showFB('error','❌ No es pareja','Busca el concepto con su definición correcta');
+  setTimeout(()=>{t1.el&&t1.el.classList.remove('wrong');el2.classList.remove('wrong')},500);
+  selectedTile=null;
+}
+
+function showHint(){
+  hints++;score=Math.max(0,score-50);document.getElementById('score').textContent=score;
+  const free=tiles.filter(t=>!t.matched&&isFree(t,tiles));
+  for(let i=0;i<free.length;i++)for(let j=i+1;j<free.length;j++){
+    if(free[i].pairId===free[j].pairId){
+      [free[i],free[j]].forEach(t=>{t.el.style.borderColor='var(--yellow)';t.el.style.boxShadow='0 0 12px rgba(255,179,0,0.4)'});
+      setTimeout(()=>[free[i],free[j]].forEach(t=>{if(t.el&&!t.matched){t.el.style.borderColor='';t.el.style.boxShadow=''}}),2000);
+      showFB('success','💡 Pista (-50 pts)','Las fichas amarillas son pareja');return;
+    }
+  }
+  showFB('error','⚠️ Sin parejas libres','Intenta mezclar las fichas');
+}
+
+function shuffleTiles(){
+  score=Math.max(0,score-30);document.getElementById('score').textContent=score;
+  const rem=tiles.filter(t=>!t.matched);const pos=rem.map(t=>({x:t.x,y:t.y,layer:t.layer}));
+  for(let i=pos.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pos[i],pos[j]]=[pos[j],pos[i]]}
+  rem.forEach((t,i)=>{t.x=pos[i].x;t.y=pos[i].y;t.layer=pos[i].layer});
+  renderBoard();showFB('success','🔀 Mezclado (-30 pts)','Fichas reordenadas');
+}
+
+function showFB(type,title,text){
+  const f=document.getElementById('feedback');f.className='feedback show '+type;
+  document.getElementById('fbTitle').textContent=title;document.getElementById('fbText').textContent=text;
+  clearTimeout(f._t);f._t=setTimeout(()=>f.classList.remove('show'),3000);
+}
+
+function startTimer(){
+  if(timerInt)clearInterval(timerInt);
+  timerInt=setInterval(()=>{seconds++;const m=Math.floor(seconds/60),s=seconds%60;document.getElementById('timer').textContent=m+':'+(s<10?'0':'')+s},1000);
+}
+
+function endGame(){
+  clearInterval(timerInt);
+  const tb=Math.max(500-seconds*2,0),fs=score+tb;
+  const m=Math.floor(seconds/60),s=seconds%60;
+  document.getElementById('winInfo').innerHTML=`Puntaje: <strong>${score}</strong><br>Bono tiempo: <strong>+${tb}</strong><br>Tiempo: <strong>${m}:${s<10?'0':''}${s}</strong><br>Pistas: <strong>${hints}</strong><br><br>Total: <strong style="font-size:28px;color:var(--green)">${fs}</strong>`;
+  document.getElementById('winModal').classList.add('show');
+  if(currentUser)try{google.script.run.saveScore({dni:currentUser.dni,nombre:currentUser.nombre+' '+currentUser.apellido,juego:'Mahjong SST',puntaje:fs,tiempo:m+':'+(s<10?'0':'')+s,detalles:'Parejas:'+totalPairs+',Pistas:'+hints})}catch(e){}
+}
+
+function goBack(){
+  if(timerInt)clearInterval(timerInt);
+  try{
+    google.script.run.withSuccessHandler(function(u){
+      window.top.location.href=u+'?page=Portal';
+    }).withFailureHandler(function(){
+      window.top.location.href='Portal.html';
+    }).getWebAppUrl();
+  }catch(e){window.top.location.href='Portal.html'}
+}
+</script>
+</body>
+</html>

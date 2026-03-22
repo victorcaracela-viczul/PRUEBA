@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SST GameHub - Quiz</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--orange:#ff6b35;--orange-light:#fff3ed;--blue:#1e88e5;--blue-light:#e3f2fd;--green:#43a047;--green-light:#e8f5e9;--red:#e53935;--red-light:#ffebee;--purple:#7c4dff;--yellow:#ffb300;--bg:#faf7f4;--card:#fff;--text:#2d3436;--text-light:#636e72;--shadow:0 2px 12px rgba(0,0,0,0.06);--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;background:var(--card);padding:10px 16px;box-shadow:var(--shadow);flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:50}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.btn-back{background:var(--orange-light);border:none;border-radius:10px;padding:8px 14px;color:var(--orange);font-family:'Nunito';font-weight:700;font-size:13px;cursor:pointer;transition:all .3s}
+.btn-back:hover{background:var(--orange);color:#fff}
+.topbar-left h1{font-family:'Fredoka';font-size:18px;color:var(--purple)}
+.stats{display:flex;gap:16px}.stat{text-align:center}.stat .v{font-family:'Fredoka';font-size:20px;font-weight:700}.stat .l{font-size:10px;color:var(--text-light);text-transform:uppercase;font-weight:700}
+
+.loading{position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading.hidden{display:none}
+.ld-spinner{width:50px;height:50px;border:4px solid #e9ecef;border-top-color:var(--purple);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ld-text{font-family:'Fredoka';font-size:16px;color:var(--purple)}
+
+.progress-dots{display:flex;gap:5px;justify-content:center;padding:12px 16px}
+.dot{width:10px;height:10px;border-radius:50%;background:#e9ecef;transition:all .3s}
+.dot.current{background:var(--blue);transform:scale(1.3);box-shadow:0 0 6px rgba(30,136,229,0.4)}
+.dot.correct{background:var(--green)}.dot.wrong{background:var(--red)}
+
+.quiz-area{max-width:700px;margin:0 auto;padding:0 16px 20px}
+
+.q-card{background:var(--card);border-radius:var(--radius);padding:28px 24px;margin-bottom:16px;box-shadow:var(--shadow);animation:cardIn .4s ease}
+@keyframes cardIn{from{opacity:0;transform:translateY(12px)}}
+.q-num{font-family:'Fredoka';font-size:12px;color:var(--purple);letter-spacing:1px;margin-bottom:12px}
+.q-text{font-size:20px;font-weight:800;line-height:1.3;margin-bottom:18px}
+.timer-bar{height:4px;background:#e9ecef;border-radius:2px;margin-bottom:20px;overflow:hidden}
+.timer-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--green),var(--yellow),var(--red));transition:width .1s;width:100%}
+
+.options{display:flex;flex-direction:column;gap:10px}
+.opt-btn{background:var(--card);border:2px solid #e9ecef;border-radius:14px;padding:14px 18px;font-size:15px;font-weight:700;color:var(--text);cursor:pointer;transition:all .3s;display:flex;align-items:center;gap:12px;text-align:left;font-family:'Nunito'}
+.opt-btn:hover:not(.disabled){border-color:var(--blue);background:var(--blue-light);transform:translateX(4px)}
+.opt-btn .letter{width:34px;height:34px;border-radius:10px;background:#f1f3f5;display:flex;align-items:center;justify-content:center;font-family:'Fredoka';font-size:14px;font-weight:700;flex-shrink:0;transition:all .3s}
+.opt-btn:hover:not(.disabled) .letter{background:var(--blue-light);color:var(--blue)}
+.opt-btn.correct{border-color:var(--green);background:var(--green-light);animation:pop .3s}
+.opt-btn.correct .letter{background:var(--green);color:#fff}
+@keyframes pop{50%{transform:scale(1.02)}}
+.opt-btn.wrong{border-color:var(--red);background:var(--red-light);animation:shake .4s}
+.opt-btn.wrong .letter{background:var(--red);color:#fff}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.opt-btn.disabled{pointer-events:none;opacity:.5}.opt-btn.disabled.correct{opacity:1}.opt-btn.disabled.wrong{opacity:.8}
+
+.exp-card{background:var(--card);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;display:none;animation:fadeUp .3s;box-shadow:var(--shadow)}
+.exp-card.show{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}}
+.exp-card.success{border-left:4px solid var(--green)}.exp-card.error{border-left:4px solid var(--red)}
+.exp-card .eb{display:inline-block;padding:3px 10px;border-radius:6px;font-family:'Fredoka';font-size:11px;font-weight:700;margin-bottom:6px}
+.exp-card.success .eb{background:var(--green-light);color:var(--green)}.exp-card.error .eb{background:var(--red-light);color:var(--red)}
+.exp-card .et{font-size:14px;color:var(--text-light);line-height:1.4}
+.exp-card .ai{font-size:10px;color:var(--purple);margin-top:6px;opacity:.7}
+
+.btn-next{display:none;margin:0 auto;background:linear-gradient(135deg,var(--purple),#b388ff);border:none;border-radius:14px;padding:14px 36px;color:#fff;font-family:'Fredoka';font-size:15px;font-weight:700;cursor:pointer;transition:all .3s;box-shadow:0 4px 15px rgba(124,77,255,0.3)}
+.btn-next.show{display:block}.btn-next:hover{transform:translateY(-2px)}
+
+/* Results */
+.results-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+.results-bg.show{display:flex}
+.results{background:var(--card);border-radius:24px;padding:36px;text-align:center;max-width:440px;width:90%;animation:popIn .5s cubic-bezier(0.34,1.56,0.64,1);box-shadow:0 10px 40px rgba(0,0,0,0.15)}
+@keyframes popIn{from{transform:scale(.85);opacity:0}}
+.results .trophy{font-size:60px;margin-bottom:10px}
+.results h2{font-family:'Fredoka';font-size:22px;margin-bottom:8px}
+.results .score-big{font-family:'Fredoka';font-size:44px;font-weight:700;color:var(--green);margin-bottom:4px}
+.results .score-lbl{font-size:12px;color:var(--text-light);margin-bottom:16px}
+.res-stats{display:flex;justify-content:center;gap:16px;margin-bottom:20px}
+.res-stats .rs{text-align:center;padding:10px 14px;background:#f8f9fa;border-radius:12px}
+.res-stats .rs .rv{font-family:'Fredoka';font-size:20px;font-weight:700}
+.res-stats .rs .rl{font-size:10px;color:var(--text-light);text-transform:uppercase}
+.res-btns{display:flex;gap:10px;justify-content:center}
+.res-btns button{padding:12px 22px;border-radius:12px;font-family:'Fredoka';font-size:13px;cursor:pointer;border:none;transition:all .3s}
+.res-btns .btn-primary{background:linear-gradient(135deg,var(--purple),#b388ff);color:#fff}
+.res-btns .btn-secondary{background:#f1f3f5;color:var(--text)}
+
+@media(max-width:500px){.q-text{font-size:17px}.topbar{justify-content:center}}
+</style>
+</head>
+<body>
+<div class="loading" id="loadingScreen"><div class="ld-spinner"></div><div class="ld-text">Generando preguntas con IA... 🤖</div></div>
+
+<div class="topbar">
+  <div class="topbar-left"><button class="btn-back" onclick="goBack()">← Volver</button><h1>❓ Quiz SST</h1></div>
+  <div class="stats">
+    <div class="stat"><div class="v" id="score" style="color:var(--green)">0</div><div class="l">Puntaje</div></div>
+    <div class="stat"><div class="v" id="qNum" style="color:var(--blue)">1/10</div><div class="l">Pregunta</div></div>
+    <div class="stat"><div class="v" id="streak" style="color:var(--yellow)">0🔥</div><div class="l">Racha</div></div>
+  </div>
+</div>
+
+<div class="progress-dots" id="progressDots"></div>
+
+<div class="quiz-area">
+  <div class="q-card" id="qCard">
+    <div class="q-num" id="qLabel">PREGUNTA 1 DE 10</div>
+    <div class="q-text" id="qText"></div>
+    <div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div>
+    <div class="options" id="options"></div>
+  </div>
+  <div class="exp-card" id="expCard"><div class="eb" id="expBadge"></div><div class="et" id="expText"></div><div class="ai">🤖 Explicación generada por IA</div></div>
+  <button class="btn-next" id="btnNext" onclick="nextQ()">Siguiente →</button>
+</div>
+
+<div class="results-bg" id="resultsBg">
+  <div class="results">
+    <div class="trophy" id="resTrophy">🏆</div>
+    <h2 id="resTitle">¡Quiz completado!</h2>
+    <div class="score-big" id="resFinal">0</div>
+    <div class="score-lbl">PUNTAJE FINAL</div>
+    <div class="res-stats">
+      <div class="rs"><div class="rv" id="resOk" style="color:var(--green)">0</div><div class="rl">Correctas</div></div>
+      <div class="rs"><div class="rv" id="resFail" style="color:var(--red)">0</div><div class="rl">Incorrectas</div></div>
+      <div class="rs"><div class="rv" id="resStreak" style="color:var(--yellow)">0</div><div class="rl">Mejor racha</div></div>
+    </div>
+    <div class="res-btns">
+      <button class="btn-secondary" onclick="goBack()">← Menú</button>
+      <button class="btn-primary" onclick="startGame();document.getElementById('resultsBg').classList.remove('show')">Jugar de nuevo ▶</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let questions=[],curQ=0,score=0,ok=0,fail=0,streak=0,bestStreak=0,timerInt=null,timeLeft=100,answered=false,currentUser=null,startTime=0;
+
+document.addEventListener('DOMContentLoaded',()=>{const s=sessionStorage.getItem('sst_user');if(s)currentUser=JSON.parse(s);startGame()});
+
+async function getDataFromAI(){return new Promise(r=>{try{google.script.run.withSuccessHandler(function(d){if(d&&d.questions)r(d);else r(simAI())}).withFailureHandler(function(){r(simAI())}).getAIContent('quiz',{count:10})}catch(e){r(simAI())}})}
+function simAI(){
+  const p=[
+    {question:"¿Altura mínima para trabajo en altura?",options:["1.00 m","1.50 m","1.80 m","2.50 m"],correct:2,explanation:"Desde 1.80m sobre el piso se considera trabajo en altura."},
+    {question:"¿Señal triangular amarilla indica...?",options:["Prohibición","Advertencia","Obligación","Emergencia"],correct:1,explanation:"Triángulo amarillo = ADVERTENCIA de peligro."},
+    {question:"¿Extintor para fuegos eléctricos?",options:["Agua","Espuma","CO2","Tipo K"],correct:2,explanation:"CO2 no conduce electricidad, ideal para equipos eléctricos."},
+    {question:"¿Qué significa IPERC?",options:["Inspección Eléctrica","Identificar Peligros, Evaluar Riesgos y Controles","Informe Prevención","Indicador Peligrosidad"],correct:1,explanation:"IPERC: base de la gestión de seguridad."},
+    {question:"¿Tiempo máximo a 85 dB sin protección?",options:["2 horas","4 horas","8 horas","12 horas"],correct:2,explanation:"85 dB por 8 horas. +3 dB = mitad de tiempo."},
+    {question:"¿Qué es LOTO?",options:["Limpieza y Orden","Bloqueo y Etiquetado","Lista Observaciones","Logística"],correct:1,explanation:"Aísla fuentes de energía durante mantenimiento."},
+    {question:"¿Peso máximo levantamiento manual?",options:["15 kg","20 kg","25 kg","30 kg"],correct:2,explanation:"Máximo 25 kg. Más = ayuda mecánica."},
+    {question:"¿Cuándo inspeccionar arnés?",options:["Cada semana","Antes de cada uso","Cada mes","Cada 6 meses"],correct:1,explanation:"SIEMPRE antes de cada uso."},
+    {question:"¿Primero ante accidente?",options:["Llamar jefe","Asegurar escena","Mover herido","Buscar culpables"],correct:1,explanation:"Primero ASEGURAR LA ESCENA."},
+    {question:"¿Color señales de obligación?",options:["Rojo","Amarillo","Azul","Verde"],correct:2,explanation:"AZUL = Obligación, acciones que se DEBEN cumplir."},
+    {question:"¿Qué es ATS?",options:["Área Trabajo","Análisis Trabajo Seguro","Auditoría","Acta"],correct:1,explanation:"Documenta pasos, peligros y controles."},
+    {question:"¿Fuego de metales = clase...?",options:["A","B","C","D"],correct:3,explanation:"Clase D: metales como magnesio, titanio."},
+    {question:"¿Mín. vías evacuación +50 personas?",options:["1","2","3","4"],correct:1,explanation:"Mínimo 2 vías independientes señalizadas."},
+    {question:"¿Polvo de sílice es riesgo...?",options:["Físico","Químico","Biológico","Ergonómico"],correct:1,explanation:"QUÍMICO: causa silicosis irreversible."},
+    {question:"¿Hoja MSDS contiene...?",options:["Manual seguridad","Datos sustancias","Mapa señales","Supervisión"],correct:1,explanation:"Propiedades, peligros y manejo de químicos."},
+  ];
+  return{questions:p.sort(()=>Math.random()-.5).slice(0,10).map((q,i)=>({id:i+1,...q}))};
+}
+
+async function startGame(){
+  curQ=0;score=0;ok=0;fail=0;streak=0;bestStreak=0;startTime=Date.now();
+  document.getElementById('score').textContent='0';document.getElementById('streak').textContent='0🔥';
+  document.getElementById('loadingScreen').classList.remove('hidden');
+  const d=await getDataFromAI();questions=d.questions;
+  const dots=document.getElementById('progressDots');dots.innerHTML='';
+  questions.forEach((_,i)=>{const d=document.createElement('div');d.className='dot';d.id='dot-'+i;dots.appendChild(d)});
+  setTimeout(()=>{document.getElementById('loadingScreen').classList.add('hidden');showQ()},800);
+}
+
+function showQ(){
+  const q=questions[curQ];answered=false;
+  document.getElementById('qLabel').textContent=`PREGUNTA ${curQ+1} DE ${questions.length}`;
+  document.getElementById('qNum').textContent=`${curQ+1}/${questions.length}`;
+  document.getElementById('qText').textContent=q.question;
+  document.getElementById('dot-'+curQ).classList.add('current');
+
+  const o=document.getElementById('options');o.innerHTML='';
+  ['A','B','C','D'].forEach((l,i)=>{
+    if(!q.options[i])return;
+    const b=document.createElement('button');b.className='opt-btn';
+    b.innerHTML=`<span class="letter">${l}</span><span>${q.options[i]}</span>`;
+    b.onclick=()=>answer(i);o.appendChild(b);
+  });
+
+  document.getElementById('expCard').className='exp-card';
+  document.getElementById('btnNext').classList.remove('show');
+  const c=document.getElementById('qCard');c.style.animation='none';c.offsetHeight;c.style.animation='cardIn .4s ease';
+  startTimer();
+}
+
+function startTimer(){
+  timeLeft=100;const f=document.getElementById('timerFill');f.style.width='100%';
+  if(timerInt)clearInterval(timerInt);
+  timerInt=setInterval(()=>{timeLeft-=.5;f.style.width=timeLeft+'%';if(timeLeft<=0){clearInterval(timerInt);if(!answered)timeout()}},75);
+}
+
+function answer(idx){
+  if(answered)return;answered=true;clearInterval(timerInt);
+  const q=questions[curQ],opts=document.querySelectorAll('.opt-btn'),isOk=idx===q.correct;
+  opts.forEach(o=>o.classList.add('disabled'));
+  opts[q.correct].classList.add('correct');
+  if(!isOk)opts[idx].classList.add('wrong');
+
+  if(isOk){const tb=Math.floor(timeLeft/5),sb=streak*10;score+=100+tb+sb;ok++;streak++;if(streak>bestStreak)bestStreak=streak}
+  else{score=Math.max(0,score-25);fail++;streak=0}
+
+  document.getElementById('score').textContent=score;document.getElementById('streak').textContent=streak+'🔥';
+  const dot=document.getElementById('dot-'+curQ);dot.classList.remove('current');dot.classList.add(isOk?'correct':'wrong');
+
+  const ec=document.getElementById('expCard');ec.className='exp-card show '+(isOk?'success':'error');
+  document.getElementById('expBadge').textContent=isOk?'✅ ¡Correcto!':'❌ Incorrecto';
+  document.getElementById('expText').textContent=q.explanation;
+
+  const nb=document.getElementById('btnNext');nb.classList.add('show');
+  nb.textContent=curQ<questions.length-1?'Siguiente →':'Ver resultados →';
+}
+
+function timeout(){
+  answered=true;fail++;streak=0;document.getElementById('streak').textContent='0🔥';
+  const q=questions[curQ],opts=document.querySelectorAll('.opt-btn');
+  opts.forEach(o=>o.classList.add('disabled'));opts[q.correct].classList.add('correct');
+  const dot=document.getElementById('dot-'+curQ);dot.classList.remove('current');dot.classList.add('wrong');
+  const ec=document.getElementById('expCard');ec.className='exp-card show error';
+  document.getElementById('expBadge').textContent='⏰ Tiempo agotado';
+  document.getElementById('expText').textContent=q.explanation;
+  document.getElementById('btnNext').classList.add('show');
+}
+
+function nextQ(){curQ++;curQ>=questions.length?showResults():showQ()}
+
+function showResults(){
+  const el=Math.floor((Date.now()-startTime)/1000),pct=Math.round((ok/questions.length)*100);
+  let trophy,title;
+  if(pct>=90){trophy='🏆';title='¡Excelente!'}else if(pct>=70){trophy='🥈';title='¡Muy bien!'}else if(pct>=50){trophy='🥉';title='¡Buen intento!'}else{trophy='📚';title='Sigue practicando'}
+  document.getElementById('resTrophy').textContent=trophy;
+  document.getElementById('resTitle').textContent=title;document.getElementById('resTitle').style.color=pct>=70?'var(--green)':'var(--yellow)';
+  document.getElementById('resFinal').textContent=score;document.getElementById('resOk').textContent=ok;
+  document.getElementById('resFail').textContent=fail;document.getElementById('resStreak').textContent=bestStreak;
+  document.getElementById('resultsBg').classList.add('show');
+  if(currentUser){const m=Math.floor(el/60),s=el%60;try{google.script.run.saveScore({dni:currentUser.dni,nombre:currentUser.nombre+' '+currentUser.apellido,juego:'Quiz SST',puntaje:score,tiempo:m+':'+(s<10?'0':'')+s,detalles:'Correctas:'+ok+'/'+questions.length+',Racha:'+bestStreak+',Precisión:'+pct+'%'})}catch(e){}}
+}
+
+function goBack(){if(timerInt)clearInterval(timerInt);try{google.script.run.withSuccessHandler(function(u){window.top.location.href=u+'?page=Portal'}).withFailureHandler(function(){window.top.location.href='Portal.html'}).getWebAppUrl()}catch(e){window.top.location.href='Portal.html'}}
+</script>
+</body>
+</html>
