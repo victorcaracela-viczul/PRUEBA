@@ -137,7 +137,7 @@ function processUploadedFile(fileBase64, fileName, mimeType, gameType) {
   const prompt = buildFilePrompt(gameType, fileName);
   const geminiResult = callGeminiAI(prompt, { base64: fileBase64, mimeType: mimeType });
   
-  if (geminiResult && geminiResult.pairs || geminiResult && geminiResult.questions) {
+  if (geminiResult && (geminiResult.pairs || geminiResult.questions)) {
     // Save to CONTENIDO sheet
     saveGeneratedContent(gameType, geminiResult, fileName);
     return { success: true, data: geminiResult, source: 'gemini' };

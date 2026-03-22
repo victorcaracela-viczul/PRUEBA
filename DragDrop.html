@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SST GameHub - Drag & Drop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--orange:#ff6b35;--orange-light:#fff3ed;--blue:#1e88e5;--blue-light:#e3f2fd;--green:#43a047;--green-light:#e8f5e9;--red:#e53935;--red-light:#ffebee;--purple:#7c4dff;--yellow:#ffb300;--bg:#faf7f4;--card:#fff;--text:#2d3436;--text-light:#636e72;--shadow:0 2px 12px rgba(0,0,0,0.06);--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;background:var(--card);padding:10px 16px;box-shadow:var(--shadow);flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:50}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.btn-back{background:var(--orange-light);border:none;border-radius:10px;padding:8px 14px;color:var(--orange);font-family:'Nunito';font-weight:700;font-size:13px;cursor:pointer;transition:all .3s}
+.btn-back:hover{background:var(--orange);color:#fff}
+.topbar-left h1{font-family:'Fredoka';font-size:18px;color:var(--green)}
+.stats{display:flex;gap:16px}.stat{text-align:center}.stat .v{font-family:'Fredoka';font-size:20px;font-weight:700}.stat .l{font-size:10px;color:var(--text-light);text-transform:uppercase;font-weight:700}
+.btn-new{background:linear-gradient(135deg,var(--green),#66bb6a);border:none;border-radius:10px;padding:8px 16px;color:#fff;font-family:'Fredoka';font-size:13px;cursor:pointer;transition:all .3s;box-shadow:0 3px 10px rgba(67,160,71,0.25)}
+
+.loading{position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading.hidden{display:none}
+.ld-spinner{width:50px;height:50px;border:4px solid #e9ecef;border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ld-text{font-family:'Fredoka';font-size:16px;color:var(--green)}
+
+.progress-bar{max-width:1100px;margin:0 auto;padding:8px 16px 0}
+.progress-track{background:#e9ecef;border-radius:8px;height:6px;overflow:hidden}
+.progress-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,var(--green),var(--blue));transition:width .5s;width:0}
+
+.game-area{display:flex;gap:20px;padding:16px;max-width:1100px;margin:0 auto;min-height:calc(100vh - 80px)}
+.items-pool{flex:1;min-width:220px}
+.pool-title{font-family:'Fredoka';font-size:15px;margin-bottom:12px;color:var(--blue);display:flex;align-items:center;gap:6px}
+.pool-title::before{content:'';width:4px;height:16px;background:var(--blue);border-radius:2px}
+
+.drag-item{background:var(--card);border:2px solid #e9ecef;border-radius:var(--radius);padding:12px 16px;margin-bottom:8px;cursor:grab;font-size:14px;font-weight:700;transition:all .3s;user-select:none;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow)}
+.drag-item:hover{border-color:var(--blue);transform:translateX(4px);box-shadow:0 4px 16px rgba(0,0,0,0.08)}
+.drag-item.dragging{opacity:.4;transform:scale(.95)}
+.drag-item .handle{color:var(--text-light);font-size:16px}
+.drag-item.correct{border-color:var(--green);background:var(--green-light);animation:pop .4s ease}
+@keyframes pop{50%{transform:scale(1.03)}}
+.drag-item.wrong{border-color:var(--red);background:var(--red-light);animation:shake .5s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+.drop-zones{flex:2;display:flex;flex-direction:column;gap:16px}
+.drop-zone{background:var(--card);border:2px dashed #dee2e6;border-radius:var(--radius);padding:16px;min-height:100px;transition:all .3s;box-shadow:var(--shadow)}
+.drop-zone.dragover{border-style:solid;background:rgba(30,136,229,0.03);border-color:var(--blue)}
+.dz-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.dz-head .dot{width:12px;height:12px;border-radius:50%}
+.dz-head h3{font-family:'Fredoka';font-size:14px}
+.dz-head .count{margin-left:auto;font-family:'Fredoka';font-size:12px;color:var(--text-light)}
+.dz-items{display:flex;flex-wrap:wrap;gap:6px;min-height:32px}
+.dropped-chip{background:#f8f9fa;border:1px solid #e9ecef;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px}
+
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--card);border-radius:var(--radius);padding:12px 20px;box-shadow:0 4px 20px rgba(0,0,0,0.12);z-index:60;max-width:460px;text-align:center;display:none;animation:fbIn .3s ease}
+.toast.show{display:block}
+@keyframes fbIn{from{transform:translateX(-50%) translateY(16px);opacity:0}to{transform:translateX(-50%);opacity:1}}
+.toast.success{border-left:4px solid var(--green)}.toast.error{border-left:4px solid var(--red)}
+.toast h4{font-family:'Fredoka';font-size:13px;margin-bottom:3px}
+.toast.success h4{color:var(--green)}.toast.error h4{color:var(--red)}
+.toast p{font-size:12px;color:var(--text-light)}
+
+.modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+.modal-bg.show{display:flex}
+.modal{background:var(--card);border-radius:24px;padding:36px;text-align:center;max-width:400px;width:90%;animation:popIn .5s cubic-bezier(0.34,1.56,0.64,1);box-shadow:0 10px 40px rgba(0,0,0,0.15)}
+@keyframes popIn{from{transform:scale(.85);opacity:0}}
+.modal .trophy{font-size:56px;margin-bottom:12px}
+.modal h2{font-family:'Fredoka';font-size:22px;color:var(--green);margin-bottom:8px}
+.modal .info{color:var(--text-light);font-size:14px;margin-bottom:18px;line-height:1.6}
+.modal .info strong{color:var(--orange);font-family:'Fredoka'}
+.modal-btns{display:flex;gap:10px;justify-content:center}
+.modal-btns button{padding:12px 22px;border-radius:12px;font-family:'Fredoka';font-size:13px;cursor:pointer;border:none;transition:all .3s}
+.modal-btns .btn-primary{background:linear-gradient(135deg,var(--green),#66bb6a);color:#fff}
+.modal-btns .btn-secondary{background:#f1f3f5;color:var(--text)}
+
+@media(max-width:768px){.game-area{flex-direction:column}.items-pool{min-width:unset}}
+</style>
+</head>
+<body>
+<div class="loading" id="loadingScreen"><div class="ld-spinner"></div><div class="ld-text">Generando elementos con IA... 🤖</div></div>
+
+<div class="topbar">
+  <div class="topbar-left"><button class="btn-back" onclick="goBack()">← Volver</button><h1>🎯 Arrastra y Clasifica</h1></div>
+  <div class="stats">
+    <div class="stat"><div class="v" id="score" style="color:var(--green)">0</div><div class="l">Puntaje</div></div>
+    <div class="stat"><div class="v" id="progress" style="color:var(--blue)">0/0</div><div class="l">Progreso</div></div>
+    <div class="stat"><div class="v" id="accuracy" style="color:var(--orange)">100%</div><div class="l">Precisión</div></div>
+  </div>
+  <button class="btn-new" onclick="startGame()">🔄 Nuevo</button>
+</div>
+<div class="progress-bar"><div class="progress-track"><div class="progress-fill" id="progressBar"></div></div></div>
+
+<div class="game-area">
+  <div class="items-pool"><div class="pool-title">Elementos por clasificar</div><div id="itemsContainer"></div></div>
+  <div class="drop-zones" id="dropZones"></div>
+</div>
+
+<div class="toast" id="toast"><h4 id="toastTitle"></h4><p id="toastText"></p></div>
+
+<div class="modal-bg" id="winModal"><div class="modal"><div class="trophy">🎯</div><h2>¡Clasificación completa!</h2><div class="info" id="winInfo"></div><div class="modal-btns"><button class="btn-secondary" onclick="goBack()">← Menú</button><button class="btn-primary" onclick="startGame();document.getElementById('winModal').classList.remove('show')">Jugar de nuevo ▶</button></div></div></div>
+
+<script>
+let gameData,items,categories,placed=0,correct=0,totalItems=0,score=0,currentUser=null,startTime=0,draggedItem=null;
+
+document.addEventListener('DOMContentLoaded',()=>{const s=sessionStorage.getItem('sst_user');if(s)currentUser=JSON.parse(s);startGame()});
+
+async function getDataFromAI(){return new Promise(r=>{try{google.script.run.withSuccessHandler(function(d){if(d&&d.categories&&d.items)r(d);else r(simAI())}).withFailureHandler(function(){r(simAI())}).getAIContent('dragdrop',{items:9})}catch(e){r(simAI())}})}
+function simAI(){
+  const sets=[{categories:[{name:"EPP Obligatorio",color:"#e74c3c"},{name:"Señalización",color:"#f39c12"},{name:"Procedimiento",color:"#3498db"}],items:[
+    {text:"Casco de seguridad",category:"EPP Obligatorio",explanation:"EPP de protección craneal obligatorio en obra."},
+    {text:"Señal prohibido fumar",category:"Señalización",explanation:"Señal roja circular de prohibición."},
+    {text:"Permiso trabajo caliente",category:"Procedimiento",explanation:"Documento requerido antes de soldadura."},
+    {text:"Arnés anticaídas",category:"EPP Obligatorio",explanation:"Obligatorio sobre 1.80m de altura."},
+    {text:"Triángulo amarillo",category:"Señalización",explanation:"Señal de advertencia de peligro."},
+    {text:"Análisis Trabajo Seguro",category:"Procedimiento",explanation:"Documenta pasos y controles."},
+    {text:"Guantes dieléctricos",category:"EPP Obligatorio",explanation:"Protección contra descargas."},
+    {text:"Flecha verde evacuación",category:"Señalización",explanation:"Ruta de escape en emergencia."},
+    {text:"Bloqueo LOTO",category:"Procedimiento",explanation:"Aislar energías en mantenimiento."}
+  ]},{categories:[{name:"Riesgo Físico",color:"#e74c3c"},{name:"Riesgo Químico",color:"#9b59b6"},{name:"Riesgo Ergonómico",color:"#27ae60"}],items:[
+    {text:"Ruido > 85 dB",category:"Riesgo Físico",explanation:"Causa daño auditivo irreversible."},
+    {text:"Vapores solventes",category:"Riesgo Químico",explanation:"Afectan sistema respiratorio."},
+    {text:"Posturas forzadas",category:"Riesgo Ergonómico",explanation:"Causan trastornos musculoesqueléticos."},
+    {text:"Vibraciones",category:"Riesgo Físico",explanation:"Daño vascular y neurológico."},
+    {text:"Ácido sulfúrico",category:"Riesgo Químico",explanation:"Quemaduras graves en piel."},
+    {text:"Carga > 25 kg",category:"Riesgo Ergonómico",explanation:"Riesgo de lesión lumbar."},
+    {text:"Radiación UV",category:"Riesgo Físico",explanation:"Riesgo de cáncer de piel."},
+    {text:"Polvo de sílice",category:"Riesgo Químico",explanation:"Causa silicosis irreversible."},
+    {text:"Movimientos repetitivos",category:"Riesgo Ergonómico",explanation:"Túnel carpiano."}
+  ]}];
+  const s=sets[Math.floor(Math.random()*sets.length)];
+  return{categories:s.categories,items:s.items.sort(()=>Math.random()-.5).map((x,i)=>({id:i+1,...x}))};
+}
+
+async function startGame(){
+  placed=0;correct=0;score=0;startTime=Date.now();
+  document.getElementById('score').textContent='0';document.getElementById('accuracy').textContent='100%';document.getElementById('progressBar').style.width='0%';
+  document.getElementById('loadingScreen').classList.remove('hidden');
+
+  gameData=await getDataFromAI();categories=gameData.categories;items=[...gameData.items];totalItems=items.length;
+  document.getElementById('progress').textContent='0/'+totalItems;
+
+  renderDropZones();renderItems();
+  setTimeout(()=>document.getElementById('loadingScreen').classList.add('hidden'),300);
+}
+
+function renderDropZones(){
+  const c=document.getElementById('dropZones');c.innerHTML='';
+  categories.forEach(cat=>{
+    const z=document.createElement('div');z.className='drop-zone';z.dataset.category=cat.name;
+    z.innerHTML=`<div class="dz-head"><div class="dot" style="background:${cat.color};box-shadow:0 0 8px ${cat.color}40"></div><h3>${cat.name}</h3><span class="count" id="cnt-${cat.name.replace(/\s/g,'-')}">0</span></div><div class="dz-items" id="dz-${cat.name.replace(/\s/g,'-')}"></div>`;
+    z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('dragover')});
+    z.addEventListener('dragleave',()=>z.classList.remove('dragover'));
+    z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('dragover');handleDrop(cat.name)});
+    c.appendChild(z);
+  });
+}
+
+function renderItems(){
+  const c=document.getElementById('itemsContainer');c.innerHTML='';
+  items.forEach((item,i)=>{
+    if(item.placed)return;
+    const el=document.createElement('div');el.className='drag-item';el.draggable=true;el.dataset.id=item.id;
+    el.innerHTML=`<span class="handle">⠿</span>${item.text}`;
+    el.addEventListener('dragstart',()=>{draggedItem=item;el.classList.add('dragging')});
+    el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+    // Touch
+    el.addEventListener('touchstart',()=>{draggedItem=item;el.classList.add('dragging')});
+    el.addEventListener('touchend',e=>{el.classList.remove('dragging');const t=e.changedTouches[0];const target=document.elementFromPoint(t.clientX,t.clientY);const zone=target?.closest('.drop-zone');if(zone)handleDrop(zone.dataset.category)});
+    el.style.opacity='0';el.style.transform='translateX(-16px)';
+    setTimeout(()=>{el.style.transition='all .3s';el.style.opacity='1';el.style.transform=''},i*60);
+    c.appendChild(el);
+  });
+}
+
+function handleDrop(targetCat){
+  if(!draggedItem)return;
+  const item=draggedItem;draggedItem=null;item.placed=true;placed++;
+  const ok=item.category===targetCat;
+  if(ok){correct++;score+=100}else{score=Math.max(0,score-30)}
+
+  const zId='dz-'+targetCat.replace(/\s/g,'-');const zone=document.getElementById(zId);
+  const chip=document.createElement('div');chip.className='dropped-chip';
+  chip.innerHTML=`<span>${ok?'✅':'❌'}</span>${item.text}`;chip.style.borderColor=ok?'var(--green)':'var(--red)';
+  zone.appendChild(chip);
+
+  document.getElementById('cnt-'+targetCat.replace(/\s/g,'-')).textContent=zone.children.length;
+
+  if(ok)showToast('success','✅ ¡Correcto!',item.explanation);
+  else showToast('error',`❌ Pertenece a "${item.category}"`,item.explanation);
+
+  const poolItem=document.querySelector(`.drag-item[data-id="${item.id}"]`);
+  if(poolItem){poolItem.classList.add(ok?'correct':'wrong');setTimeout(()=>{poolItem.style.transition='all .3s';poolItem.style.opacity='0';poolItem.style.height='0';poolItem.style.padding='0';poolItem.style.margin='0';poolItem.style.overflow='hidden';setTimeout(()=>poolItem.remove(),300)},500)}
+
+  document.getElementById('score').textContent=score;
+  document.getElementById('progress').textContent=placed+'/'+totalItems;
+  document.getElementById('accuracy').textContent=Math.round((correct/placed)*100)+'%';
+  document.getElementById('progressBar').style.width=(placed/totalItems*100)+'%';
+  if(placed>=totalItems)setTimeout(endGame,1200);
+}
+
+function showToast(type,title,text){
+  const t=document.getElementById('toast');t.className='toast show '+type;
+  document.getElementById('toastTitle').textContent=title;document.getElementById('toastText').textContent=text;
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+function endGame(){
+  const el=Math.floor((Date.now()-startTime)/1000),m=Math.floor(el/60),s=el%60;
+  const acc=Math.round((correct/totalItems)*100),tb=Math.max(300-el,0),fs=score+tb;
+  document.getElementById('winInfo').innerHTML=`Correctos: <strong>${correct}/${totalItems}</strong><br>Precisión: <strong>${acc}%</strong><br>Tiempo: <strong>${m}:${s<10?'0':''}${s}</strong><br>Bono: <strong>+${tb}</strong><br><br>Total: <strong style="font-size:28px;color:var(--green)">${fs}</strong>`;
+  document.getElementById('winModal').classList.add('show');
+  if(currentUser)try{google.script.run.saveScore({dni:currentUser.dni,nombre:currentUser.nombre+' '+currentUser.apellido,juego:'Drag & Drop SST',puntaje:fs,tiempo:m+':'+(s<10?'0':'')+s,detalles:'Correctos:'+correct+'/'+totalItems+',Precisión:'+acc+'%'})}catch(e){}
+}
+
+function goBack(){try{google.script.run.withSuccessHandler(function(u){window.top.location.href=u+'?page=Portal'}).withFailureHandler(function(){window.top.location.href='Portal.html'}).getWebAppUrl()}catch(e){window.top.location.href='Portal.html'}}
+</script>
+</body>
+</html>

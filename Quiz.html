@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SST GameHub - Quiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--orange:#ff6b35;--orange-light:#fff3ed;--blue:#1e88e5;--blue-light:#e3f2fd;--green:#43a047;--green-light:#e8f5e9;--red:#e53935;--red-light:#ffebee;--purple:#7c4dff;--yellow:#ffb300;--bg:#faf7f4;--card:#fff;--text:#2d3436;--text-light:#636e72;--shadow:0 2px 12px rgba(0,0,0,0.06);--radius:16px}
@@ -159,7 +161,7 @@ async function startGame(){
   const d=await getDataFromAI();questions=d.questions;
   const dots=document.getElementById('progressDots');dots.innerHTML='';
   questions.forEach((_,i)=>{const d=document.createElement('div');d.className='dot';d.id='dot-'+i;dots.appendChild(d)});
-  setTimeout(()=>{document.getElementById('loadingScreen').classList.add('hidden');showQ()},800);
+  setTimeout(()=>{document.getElementById('loadingScreen').classList.add('hidden');showQ()},300);
 }
 
 function showQ(){

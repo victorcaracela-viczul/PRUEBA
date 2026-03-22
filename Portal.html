@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SST GameHub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -491,19 +493,17 @@ function loadStats() {
 function launchGame(game) {
   var ol = document.getElementById('loadingOverlay');
   ol.classList.add('show');
-  setTimeout(function() {
-    try {
-      if (webAppUrl) {
-        window.top.location.href = webAppUrl + '?page=' + game;
-      } else {
-        google.script.run.withSuccessHandler(function(u) {
-          window.top.location.href = u + '?page=' + game;
-        }).withFailureHandler(function() {
-          window.location.href = game + '.html';
-        }).getWebAppUrl();
-      }
-    } catch(e) { window.location.href = game + '.html'; }
-  }, 600);
+  try {
+    if (webAppUrl) {
+      window.top.location.href = webAppUrl + '?page=' + game;
+    } else {
+      google.script.run.withSuccessHandler(function(u) {
+        window.top.location.href = u + '?page=' + game;
+      }).withFailureHandler(function() {
+        window.location.href = game + '.html';
+      }).getWebAppUrl();
+    }
+  } catch(e) { window.location.href = game + '.html'; }
 }
 
 function openAdmin() {
