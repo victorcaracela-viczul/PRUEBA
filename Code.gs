@@ -208,6 +208,7 @@ function callGeminiAI(prompt, fileData) {
       var response = UrlFetchApp.fetch(url, options);
       var httpCode = response.getResponseCode();
       var responseText = response.getContentText();
+      Logger.log('GEMINI HTTP ' + httpCode + ' (' + models[m] + '): ' + responseText.substring(0, 300));
 
       if (httpCode === 404) {
         lastError = 'Modelo ' + models[m] + ' no disponible.';
@@ -229,14 +230,20 @@ function callGeminiAI(prompt, fileData) {
 
       if (result.candidates && result.candidates[0] && result.candidates[0].content) {
         var text = result.candidates[0].content.parts[0].text;
+        Logger.log('RESPUESTA CRUDA DE GEMINI (' + models[m] + '): ' + text.substring(0, 500));
+
+        // LIMPIEZA DE MARKDOWN: Elimina bloques ```json y ```
+        text = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
         try {
           return { data: JSON.parse(text), error: null };
         } catch(e) {
+          // Si falla, intenta extraer lo que esté entre llaves { }
           var match = text.match(/\{[\s\S]*\}/);
           if (match) {
             try { return { data: JSON.parse(match[0]), error: null }; } catch(e2) {}
           }
-          return { data: null, error: 'Gemini respondió pero no en formato JSON válido: ' + text.substring(0, 200) };
+          return { data: null, error: 'Error parseando JSON: ' + e.message + '. Respuesta: ' + text.substring(0, 300) };
         }
       }
 
@@ -353,35 +360,82 @@ function processUploadedFile(fileBase64, fileName, mimeType, gameType) {
 }
 
 function buildFilePrompt(gameType, fileName) {
+  const baseInstructions = "INSTRUCCIONES CRÍTICAS: Responde ÚNICAMENTE con un objeto JSON válido. NO incluyas texto introductorio, conclusiones, explicaciones ni bloques de código Markdown. Tu respuesta debe empezar con { y terminar con }. Analiza el contenido del documento/imagen adjunto sobre Seguridad y Salud en el Trabajo (SST) y genera contenido educativo basado ESPECÍFICAMENTE en lo que dice el documento.";
+
   const prompts = {
-    'mahjong': `Analiza este documento/imagen sobre seguridad y salud en el trabajo. 
+    'mahjong': `${baseInstructions}
+
 Genera exactamente 12 pares de conceptos para un juego de Mahjong educativo.
-Responde SOLO con JSON válido con esta estructura:
-{"pairs":[{"id":1,"concept":"concepto corto con emoji","match":"definición corta"}]}
-Los conceptos deben ser específicos del contenido del documento.`,
+Cada par debe relacionar un concepto de SST del documento con su definición.
 
-    'memoria': `Analiza este documento/imagen sobre SST.
-Genera exactamente 8 pares para un juego de memoria educativo.
-Responde SOLO con JSON:
-{"pairs":[{"id":1,"front":"emoji","back":"CONCEPTO","explanation":"explicación educativa de 1-2 oraciones"}]}`,
+Estructura JSON requerida:
+{"pairs":[{"id":1,"concept":"🔥 Concepto corto","match":"Definición breve y clara"}]}
 
-    'dragdrop': `Analiza este documento/imagen sobre SST.
-Genera 3 categorías y 9 elementos para clasificar en un juego de arrastrar y soltar.
-Responde SOLO con JSON:
-{"categories":[{"name":"Categoría","color":"#hexcolor"}],"items":[{"id":1,"text":"elemento","category":"nombre categoría exacto","explanation":"por qué pertenece aquí"}]}`,
+Reglas:
+- Exactamente 12 objetos en el array "pairs"
+- "concept" debe incluir un emoji relevante y máximo 4 palabras
+- "match" debe ser la definición en máximo 8 palabras
+- Todo el contenido debe provenir del documento adjunto`,
 
-    'quiz': `Analiza este documento/imagen sobre SST.
+    'memoria': `${baseInstructions}
+
+Genera exactamente 8 pares para un juego de memoria educativo sobre SST.
+
+Estructura JSON requerida:
+{"pairs":[{"id":1,"front":"🔥","back":"CONCEPTO EN MAYÚSCULAS","explanation":"Explicación educativa de 1-2 oraciones basada en el documento"}]}
+
+Reglas:
+- Exactamente 8 objetos en el array "pairs"
+- "front" es un solo emoji representativo
+- "back" es el concepto en MAYÚSCULAS (máximo 3 palabras)
+- "explanation" explica el concepto según el documento`,
+
+    'dragdrop': `${baseInstructions}
+
+Genera 3 categorías y 9 elementos (3 por categoría) para un juego de arrastrar y soltar sobre SST.
+
+Estructura JSON requerida:
+{"categories":[{"name":"Nombre Categoría","color":"#hexcolor"}],"items":[{"id":1,"text":"Elemento a clasificar","category":"Nombre Categoría exacto","explanation":"Por qué pertenece a esta categoría"}]}
+
+Reglas:
+- Exactamente 3 objetos en "categories" con colores hex diferentes
+- Exactamente 9 objetos en "items" (3 por categoría)
+- El campo "category" de cada item DEBE coincidir exactamente con un "name" de categories
+- Contenido basado en el documento adjunto`,
+
+    'quiz': `${baseInstructions}
+
 Genera exactamente 10 preguntas de quiz con 4 opciones cada una.
-Responde SOLO con JSON:
-{"questions":[{"id":1,"question":"pregunta","options":["A","B","C","D"],"correct":0,"explanation":"explicación educativa"}]}`,
 
-    'simulacion': `Analiza este documento/imagen sobre SST.
-Genera un escenario de inspección de riesgos basado en el contenido.
-Responde SOLO con JSON:
-{"scenario":{"title":"título","description":"descripción","environment":"construccion"},
-"hazards":[{"id":1,"name":"peligro","description":"detalle","severity":"alta","x":20,"y":30,"width":15,"height":15,"solution":"cómo mitigar"}]}`
+Estructura JSON requerida:
+{"questions":[{"id":1,"question":"¿Pregunta sobre SST basada en el documento?","options":["Opción A","Opción B","Opción C","Opción D"],"correct":0,"explanation":"Explicación de por qué esta es la respuesta correcta según el documento"}]}
+
+Reglas:
+- Exactamente 10 objetos en el array "questions"
+- "options" siempre tiene exactamente 4 strings
+- "correct" es el índice (0-3) de la respuesta correcta
+- Las preguntas deben basarse en el contenido específico del documento`,
+
+    'simulacion': `${baseInstructions}
+
+Genera un escenario de inspección de riesgos laborales basado en el contenido del documento.
+
+Estructura JSON requerida:
+{"scenario":{"title":"Título del escenario","description":"Descripción de la situación laboral","environment":"tipo de ambiente"},"hazards":[{"id":1,"name":"Nombre del peligro","description":"Descripción detallada del riesgo","severity":"alta","x":20,"y":30,"width":15,"height":15,"solution":"Medida de control o mitigación"}]}
+
+Reglas:
+- Un solo objeto "scenario" con title, description y environment
+- Entre 4 y 8 objetos en "hazards"
+- "severity" puede ser: "baja", "media", "alta" o "critica"
+- x, y, width, height son porcentajes (0-100) para posicionar en pantalla
+- Los peligros deben basarse en el contenido del documento`
   };
-  return prompts[gameType] || prompts['quiz'];
+
+  var prompt = prompts[gameType] || prompts['quiz'];
+  if (fileName) {
+    prompt += '\n\nArchivo analizado: ' + fileName;
+  }
+  return prompt;
 }
 
 function saveGeneratedContent(gameType, data, source) {
