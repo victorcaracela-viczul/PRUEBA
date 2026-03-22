@@ -2,6 +2,19 @@
 // 🛡️ SST GAMEHUB v2.0 - BACKEND CON GEMINI AI
 // ============================================================
 
+// ▶️ EJECUTAR ESTA FUNCIÓN PARA CREAR LAS HOJAS MANUALES
+// En el editor: selecciona "SETUP_CrearHojasManuales" y dale al botón ▶️ Ejecutar
+function SETUP_CrearHojasManuales() {
+  var resultado = crearHojasManuales();
+  if (resultado.success) {
+    Logger.log('✅ ' + resultado.message);
+    SpreadsheetApp.getUi().alert('✅ ¡Hojas creadas!\n\n' + resultado.message + '\n\nAbre tu Google Sheet y verás las nuevas pestañas:\n- Quiz_Manual\n- Mahjong_Manual\n- Memoria_Manual\n- DragDrop_Manual\n- Simulacion_Manual\n\nCada una tiene ejemplos. Solo llena las filas.');
+  } else {
+    Logger.log('❌ Error: ' + resultado.error);
+    SpreadsheetApp.getUi().alert('❌ Error:\n' + resultado.error);
+  }
+}
+
 // Default config (overridden by Script Properties when available)
 const CONFIG = {
   SPREADSHEET_ID: '1IUsFpuV5PPqQ-Ym62Vdy7nWfueumpxSc7fCasM-Ojes',
