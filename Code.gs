@@ -156,85 +156,111 @@ function getConfigStatus() {
 // 🤖 GEMINI AI ENGINE
 // ============================================================
 
+// callGeminiAI now returns { data: ..., error: ... } instead of just data or null
 function callGeminiAI(prompt, fileData) {
   if (!CONFIG.USE_REAL_API || CONFIG.GEMINI_API_KEY === 'TU_GEMINI_API_KEY_AQUI') {
-    Logger.log('Gemini SKIP: USE_REAL_API=' + CONFIG.USE_REAL_API + ', key configured=' + (CONFIG.GEMINI_API_KEY !== 'TU_GEMINI_API_KEY_AQUI'));
-    return null;
+    return { data: null, error: 'IA no activada. USE_REAL_API=' + CONFIG.USE_REAL_API + '. Configura tu API Key en la pestaña Configuración.' };
   }
   try {
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + CONFIG.GEMINI_API_KEY;
+    // Try multiple model names in case one isn't available
+    var models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+    var lastError = '';
 
-    var parts = [{ text: prompt }];
+    for (var m = 0; m < models.length; m++) {
+      var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + models[m] + ':generateContent?key=' + CONFIG.GEMINI_API_KEY;
 
-    // If file data is provided (base64), add as inline data
-    if (fileData && fileData.base64 && fileData.mimeType) {
-      // Only send supported mime types for inline data
-      var supportedTypes = ['image/jpeg','image/png','image/webp','image/gif','application/pdf'];
-      if (supportedTypes.indexOf(fileData.mimeType) !== -1) {
-        parts.unshift({
-          inlineData: { mimeType: fileData.mimeType, data: fileData.base64 }
-        });
-      } else {
-        // For unsupported types (doc, docx, txt), try to decode text and include in prompt
+      var parts = [{ text: prompt }];
+
+      // If file data is provided (base64), add as inline data
+      if (fileData && fileData.base64 && fileData.mimeType) {
+        var supportedTypes = ['image/jpeg','image/png','image/webp','image/gif','application/pdf'];
+        if (supportedTypes.indexOf(fileData.mimeType) !== -1) {
+          parts.unshift({
+            inlineData: { mimeType: fileData.mimeType, data: fileData.base64 }
+          });
+        } else {
+          // For unsupported types (doc, docx, txt), decode text into prompt
+          try {
+            var decoded = Utilities.newBlob(Utilities.base64Decode(fileData.base64)).getDataAsString();
+            if (decoded && decoded.length > 10) {
+              parts[0].text = prompt + '\n\n--- CONTENIDO DEL DOCUMENTO ---\n' + decoded.substring(0, 15000);
+            }
+          } catch(decErr) { /* ignore decode errors */ }
+        }
+      }
+
+      var payload = {
+        contents: [{ parts: parts }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 4096,
+          responseMimeType: "application/json"
+        }
+      };
+
+      var options = {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      };
+
+      var response = UrlFetchApp.fetch(url, options);
+      var httpCode = response.getResponseCode();
+      var responseText = response.getContentText();
+
+      if (httpCode === 404) {
+        lastError = 'Modelo ' + models[m] + ' no disponible.';
+        continue; // Try next model
+      }
+
+      if (httpCode !== 200) {
+        // Parse error detail from Gemini
+        var errDetail = '';
         try {
-          var decoded = Utilities.newBlob(Utilities.base64Decode(fileData.base64)).getDataAsString();
-          if (decoded && decoded.length > 10) {
-            parts[0].text = prompt + '\n\n--- CONTENIDO DEL DOCUMENTO ---\n' + decoded.substring(0, 15000);
+          var errJson = JSON.parse(responseText);
+          errDetail = errJson.error ? errJson.error.message : responseText.substring(0, 200);
+        } catch(e) { errDetail = responseText.substring(0, 200); }
+        return { data: null, error: 'Gemini HTTP ' + httpCode + ' (' + models[m] + '): ' + errDetail };
+      }
+
+      // Success - parse response
+      var result = JSON.parse(responseText);
+
+      if (result.candidates && result.candidates[0] && result.candidates[0].content) {
+        var text = result.candidates[0].content.parts[0].text;
+        try {
+          return { data: JSON.parse(text), error: null };
+        } catch(e) {
+          var match = text.match(/\{[\s\S]*\}/);
+          if (match) {
+            try { return { data: JSON.parse(match[0]), error: null }; } catch(e2) {}
           }
-        } catch(decErr) {
-          Logger.log('Could not decode file as text: ' + decErr.message);
+          return { data: null, error: 'Gemini respondió pero no en formato JSON válido: ' + text.substring(0, 200) };
         }
       }
-    }
 
-    var payload = {
-      contents: [{ parts: parts }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 4096,
-        responseMimeType: "application/json"
+      // Check for blocked content
+      if (result.candidates && result.candidates[0] && result.candidates[0].finishReason === 'SAFETY') {
+        return { data: null, error: 'Gemini bloqueó el contenido por filtros de seguridad. Intenta con otro archivo.' };
       }
-    };
 
-    var options = {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    };
-
-    var response = UrlFetchApp.fetch(url, options);
-    var httpCode = response.getResponseCode();
-    var responseText = response.getContentText();
-
-    if (httpCode !== 200) {
-      Logger.log('Gemini HTTP ' + httpCode + ': ' + responseText.substring(0, 300));
-      return null;
+      return { data: null, error: 'Gemini no generó respuesta. Respuesta: ' + responseText.substring(0, 200) };
     }
 
-    var result = JSON.parse(responseText);
-
-    if (result.candidates && result.candidates[0] && result.candidates[0].content) {
-      var text = result.candidates[0].content.parts[0].text;
-      Logger.log('Gemini raw response (first 500 chars): ' + text.substring(0, 500));
-      try { return JSON.parse(text); } catch(e) {
-        // Try to extract JSON from response
-        var match = text.match(/\{[\s\S]*\}/);
-        if (match) {
-          try { return JSON.parse(match[0]); } catch(e2) {
-            Logger.log('Gemini JSON parse failed: ' + e2.message);
-          }
-        }
-        return { text: text };
-      }
-    }
-
-    Logger.log('Gemini no candidates in response: ' + responseText.substring(0, 300));
-    return null;
+    return { data: null, error: lastError || 'Ningún modelo de Gemini disponible.' };
   } catch(err) {
-    Logger.log('Gemini error: ' + err.message);
-    return null;
+    return { data: null, error: 'Error de conexión con Gemini: ' + err.message };
   }
+}
+
+// Simple test function - called from Admin UI
+function testGeminiConnection() {
+  var result = callGeminiAI('Responde solo con este JSON exacto: {"ok":true,"message":"Conexión exitosa"}', null);
+  if (result.data && result.data.ok) {
+    return { success: true, message: 'Gemini AI funcionando correctamente.' };
+  }
+  return { success: false, message: result.error || 'Sin respuesta de Gemini.' };
 }
 
 // ===== PROCESAR ARCHIVO SUBIDO =====
@@ -257,10 +283,11 @@ function processUploadedFile(fileBase64, fileName, mimeType, gameType) {
   var prompt = buildFilePrompt(gameType, fileName);
 
   // Try Gemini AI
-  var geminiResult = callGeminiAI(prompt, { base64: fileBase64, mimeType: mimeType });
+  var aiResult = callGeminiAI(prompt, { base64: fileBase64, mimeType: mimeType });
 
-  // Validate response based on game type
-  if (geminiResult) {
+  // If Gemini returned data, validate it
+  if (aiResult.data) {
+    var geminiResult = aiResult.data;
     var isValid = false;
     if (gameType === 'quiz' && geminiResult.questions && geminiResult.questions.length > 0) isValid = true;
     if ((gameType === 'mahjong' || gameType === 'memoria') && geminiResult.pairs && geminiResult.pairs.length > 0) isValid = true;
@@ -271,14 +298,23 @@ function processUploadedFile(fileBase64, fileName, mimeType, gameType) {
       saveGeneratedContent(gameType, geminiResult, fileName);
       return { success: true, data: geminiResult, source: 'gemini' };
     }
-    // Gemini returned something but not in the expected format
-    Logger.log('Gemini response invalid format for ' + gameType + ': ' + JSON.stringify(geminiResult).substring(0, 500));
+    // Gemini returned data but wrong format
+    return {
+      success: true,
+      data: simulateAIResponse(gameType, {}),
+      source: 'simulado',
+      geminiError: 'Gemini respondió pero en formato incorrecto para ' + gameType + '. Datos recibidos: ' + JSON.stringify(geminiResult).substring(0, 300)
+    };
   }
 
-  // Fallback to simulation
+  // Gemini failed - return error details along with fallback
   var simulated = simulateAIResponse(gameType, {});
-  saveGeneratedContent(gameType, simulated, 'Simulado - ' + fileName);
-  return { success: true, data: simulated, source: 'simulado' };
+  return {
+    success: true,
+    data: simulated,
+    source: 'simulado',
+    geminiError: aiResult.error || 'Error desconocido al conectar con Gemini'
+  };
 }
 
 function buildFilePrompt(gameType, fileName) {
@@ -354,8 +390,8 @@ function getAIContent(gameType, params) {
     // 2) Try Gemini API
     try {
       var prompt = buildGenerationPrompt(gameType, params);
-      var geminiResult = callGeminiAI(prompt, null);
-      if (geminiResult) return geminiResult;
+      var aiResult = callGeminiAI(prompt, null);
+      if (aiResult.data) return aiResult.data;
     } catch(e) { Logger.log('Gemini error: ' + e.message); }
     
     // 3) Fallback: ALWAYS return simulated data
@@ -374,8 +410,8 @@ function buildGenerationPrompt(gameType, params) {
 
 function getExplanationFromAI(context) {
   const prompt = `Explica en máximo 2 oraciones por qué "${context.correct}" es correcto en SST. El usuario eligió "${context.userAnswer}". Responde SOLO JSON: {"explanation":"tu explicación"}`;
-  const result = callGeminiAI(prompt, null);
-  if (result && result.explanation) return result;
+  const aiResult = callGeminiAI(prompt, null);
+  if (aiResult.data && aiResult.data.explanation) return aiResult.data;
   return { explanation: `Recuerda: "${context.correct}" es fundamental en SST para la prevención de accidentes laborales.` };
 }
 

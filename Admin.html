@@ -246,13 +246,18 @@ body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;backg
         <div class="hint">Se encuentra en la URL: docs.google.com/spreadsheets/d/<strong>ESTE_ID</strong>/edit</div>
       </div>
 
-      <button class="btn-generate" onclick="saveConfig()" style="margin-top:10px">
-        💾 Guardar Configuración
-      </button>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="btn-generate" onclick="saveConfig()" style="flex:1">
+          💾 Guardar Configuración
+        </button>
+        <button class="btn-generate" onclick="testConnection()" id="btnTest" style="flex:1;background:linear-gradient(135deg,var(--green),#66bb6a);box-shadow:0 4px 15px rgba(67,160,71,0.3)">
+          🧪 Probar Conexión Gemini
+        </button>
+      </div>
 
       <div class="result-card" id="configResult" style="margin-top:16px">
-        <h5 id="resultTitle">ℹ️ ¿Cómo configurar?</h5>
-        <p id="resultMsg">1. Obtén tu API Key gratis en <strong>aistudio.google.com</strong> → Get API Key<br>
+        <h5 id="cfgResultTitle">ℹ️ ¿Cómo configurar?</h5>
+        <p id="cfgResultMsg">1. Obtén tu API Key gratis en <strong>aistudio.google.com</strong> → Get API Key<br>
         2. Copia el ID de tu Google Sheet desde la URL<br>
         3. Pega ambos valores arriba y haz clic en Guardar<br><br>
         <strong>Sin API Key:</strong> Los juegos usan contenido predeterminado (no lee tus documentos).<br>
@@ -341,17 +346,69 @@ function generateContent() {
     return;
   }
 
-  const btn = document.getElementById('btnGenerate');
-  const proc = document.getElementById('processing');
-  const result = document.getElementById('resultCard');
+  // Check file size - google.script.run limit is ~256KB for parameters
+  var base64Size = selectedFileBase64.length;
+  if (base64Size > 200000) {
+    // Try to compress if it's an image
+    if (selectedFile.type.startsWith('image/')) {
+      compressAndSend();
+      return;
+    }
+    alert('⚠️ El archivo es muy grande para procesar (' + (base64Size / 1024 / 1024).toFixed(1) + ' MB en base64).\n\nGoogle Apps Script tiene un límite de ~256KB por llamada.\n\nSolución: usa una imagen más pequeña o un PDF corto.');
+    return;
+  }
+
+  sendToServer(selectedFileBase64, selectedFile.name, selectedFile.type || 'application/octet-stream');
+}
+
+function compressAndSend() {
+  var proc = document.getElementById('processing');
+  proc.classList.add('show');
+  document.querySelector('.processing .proc-text').textContent = 'Comprimiendo imagen...';
+
+  var img = new Image();
+  img.onload = function() {
+    var canvas = document.createElement('canvas');
+    var maxDim = 1200; // Max dimension
+    var w = img.width, h = img.height;
+    if (w > maxDim || h > maxDim) {
+      if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+      else { w = Math.round(w * maxDim / h); h = maxDim; }
+    }
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    var compressed = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+
+    if (compressed.length > 200000) {
+      // Still too large, compress more
+      canvas.width = Math.round(w * 0.6);
+      canvas.height = Math.round(h * 0.6);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      compressed = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
+    }
+
+    document.querySelector('.processing .proc-text').textContent = 'Gemini AI procesando tu archivo...';
+    sendToServer(compressed, selectedFile.name, 'image/jpeg');
+  };
+  img.onerror = function() {
+    proc.classList.remove('show');
+    alert('No se pudo comprimir la imagen. Intenta con un archivo más pequeño.');
+  };
+  img.src = 'data:' + selectedFile.type + ';base64,' + selectedFileBase64;
+}
+
+function sendToServer(base64Data, fileName, mimeType) {
+  var btn = document.getElementById('btnGenerate');
+  var proc = document.getElementById('processing');
+  var result = document.getElementById('resultCard');
 
   btn.disabled = true;
   proc.classList.add('show');
+  document.querySelector('.processing .proc-text').textContent = 'Gemini AI procesando tu archivo...';
+  document.querySelector('.processing .proc-sub').textContent = 'Enviando ' + (base64Data.length / 1024).toFixed(0) + ' KB a Gemini...';
   result.classList.remove('show');
   result.classList.remove('error');
-
-  const mimeType = selectedFile.type || 'application/octet-stream';
-  const fileName = selectedFile.name;
 
   try {
     google.script.run
@@ -364,18 +421,20 @@ function generateContent() {
           if (r.source === 'gemini') {
             document.getElementById('resultTitle').textContent = '✅ ¡Contenido generado por Gemini AI!';
             document.getElementById('resultMsg').textContent =
-              'Gemini analizó tu archivo "' + fileName + '" y generó contenido personalizado para el juego. Ya está guardado y disponible.';
+              'Gemini analizó "' + fileName + '" y generó contenido personalizado. Ya está guardado y disponible en el juego.';
+            document.getElementById('previewData').textContent = JSON.stringify(r.data, null, 2).substring(0, 1200);
           } else {
             result.classList.add('error');
-            document.getElementById('resultTitle').textContent = '⚠️ Gemini no pudo procesar el archivo';
-            document.getElementById('resultMsg').textContent =
-              'Se guardó contenido genérico. Posibles causas: API Key inválida, archivo no soportado, o Gemini no pudo extraer contenido SST. Ve a "Configuración IA" para verificar tu conexión.';
+            var errorMsg = r.geminiError || 'Error desconocido';
+            document.getElementById('resultTitle').textContent = '❌ Gemini no pudo procesar el archivo';
+            document.getElementById('resultMsg').textContent = 'Error de Gemini: ' + errorMsg;
+            document.getElementById('previewData').textContent =
+              'Se guardó contenido genérico como respaldo.\n\nPara diagnosticar:\n1. Ve a "Configuración IA" y haz clic en "Probar Conexión"\n2. Verifica que tu API Key esté activa en aistudio.google.com\n3. Intenta con otro archivo (imagen JPG/PNG o PDF pequeño)';
           }
-          document.getElementById('previewData').textContent = JSON.stringify(r.data, null, 2).substring(0, 1200);
         } else {
           result.classList.add('error');
-          document.getElementById('resultTitle').textContent = '❌ Error al generar';
-          document.getElementById('resultMsg').textContent = (r && r.error) ? r.error : 'Error desconocido. Verifica la configuración.';
+          document.getElementById('resultTitle').textContent = '❌ Error';
+          document.getElementById('resultMsg').textContent = (r && r.error) ? r.error : 'Error desconocido';
           document.getElementById('previewData').textContent = '';
         }
       })
@@ -384,20 +443,20 @@ function generateContent() {
         proc.classList.remove('show');
         result.classList.add('show');
         result.classList.add('error');
-        document.getElementById('resultTitle').textContent = '❌ Error de conexión con Apps Script';
-        document.getElementById('resultMsg').textContent =
-          'No se pudo conectar con el servidor. Verifica que:\n1. El proyecto esté desplegado como Web App\n2. La API Key y Sheet ID estén configurados en "Configuración IA"\n\nError: ' + (err ? err.message || err : 'desconocido');
-        document.getElementById('previewData').textContent = '';
+        var errMsg = err ? (err.message || String(err)) : 'desconocido';
+        document.getElementById('resultTitle').textContent = '❌ Error de conexión';
+        document.getElementById('resultMsg').textContent = 'La llamada al servidor falló: ' + errMsg;
+        document.getElementById('previewData').textContent =
+          'Posibles causas:\n- Archivo demasiado grande (máx ~200KB en base64)\n- Error de red\n- Web App no desplegada correctamente\n\nTamaño enviado: ' + (base64Data.length / 1024).toFixed(0) + ' KB';
       })
-      .processUploadedFile(selectedFileBase64, fileName, mimeType, selectedGame);
+      .processUploadedFile(base64Data, fileName, mimeType, selectedGame);
   } catch(e) {
     btn.disabled = false;
     proc.classList.remove('show');
     result.classList.add('show');
     result.classList.add('error');
-    document.getElementById('resultTitle').textContent = '❌ No se puede conectar';
-    document.getElementById('resultMsg').textContent =
-      'Este panel necesita estar desplegado en Google Apps Script para generar contenido con IA. Asegúrate de:\n1. Tener el proyecto en Apps Script (script.google.com)\n2. Implementar como Web App\n3. Configurar API Key en "Configuración IA"';
+    document.getElementById('resultTitle').textContent = '❌ No conectado a Apps Script';
+    document.getElementById('resultMsg').textContent = 'Despliega el proyecto como Web App primero.';
     document.getElementById('previewData').textContent = '';
   }
 }
@@ -503,29 +562,69 @@ function saveConfig() {
 
           var allOk = status.sheetConnected && status.apiConnected;
           resultEl.className = 'result-card show' + (allOk ? '' : ' error');
-          document.getElementById('resultTitle').textContent = allOk ? '✅ ¡Todo conectado!' : '⚠️ Resultado de la configuración';
-          document.getElementById('resultMsg').innerHTML = msgs.join('<br>');
+          document.getElementById('cfgResultTitle').textContent = allOk ? '✅ ¡Todo conectado!' : '⚠️ Resultado de la configuración';
+          document.getElementById('cfgResultMsg').innerHTML = msgs.join('<br>');
           if (allOk) {
-            document.getElementById('resultMsg').innerHTML += '<br><br><strong>¡Ahora sube un documento y genera contenido personalizado!</strong>';
+            document.getElementById('cfgResultMsg').innerHTML += '<br><br><strong>¡Ahora sube un documento y genera contenido personalizado!</strong>';
           }
         } else {
           resultEl.className = 'result-card show error';
-          document.getElementById('resultTitle').textContent = '❌ Error';
-          document.getElementById('resultMsg').textContent = status.error || 'Error al guardar';
+          document.getElementById('cfgResultTitle').textContent = '❌ Error';
+          document.getElementById('cfgResultMsg').textContent = status.error || 'Error al guardar';
         }
       })
       .withFailureHandler(function(err) {
         btn.disabled = false;
         btn.textContent = '💾 Guardar Configuración';
         resultEl.classList.add('show', 'error');
-        document.getElementById('resultTitle').textContent = '❌ Error de conexión';
-        document.getElementById('resultMsg').textContent = 'No se pudo guardar. Asegúrate de estar ejecutando desde Apps Script.';
+        document.getElementById('cfgResultTitle').textContent = '❌ Error de conexión';
+        document.getElementById('cfgResultMsg').textContent = 'No se pudo guardar. Asegúrate de estar ejecutando desde Apps Script.';
       })
       .saveConfigFromAdmin(apiKey || null, sheetId || null);
   } catch(e) {
     btn.disabled = false;
     btn.textContent = '💾 Guardar Configuración';
-    alert('Error: esta función requiere estar desplegada en Google Apps Script.\n\nPara configurar manualmente:\n1. Abre Code.gs en el editor de Apps Script\n2. Cambia TU_GEMINI_API_KEY_AQUI por tu clave\n3. Cambia TU_SPREADSHEET_ID_AQUI por el ID de tu hoja\n4. Vuelve a implementar la web app');
+    alert('Esta función requiere estar desplegada en Google Apps Script.');
+  }
+}
+
+function testConnection() {
+  var btn = document.getElementById('btnTest');
+  var resultEl = document.getElementById('configResult');
+  btn.disabled = true;
+  btn.textContent = '⏳ Probando...';
+  resultEl.classList.remove('show', 'error');
+
+  try {
+    google.script.run
+      .withSuccessHandler(function(r) {
+        btn.disabled = false;
+        btn.textContent = '🧪 Probar Conexión Gemini';
+        resultEl.classList.add('show');
+        if (r.success) {
+          resultEl.className = 'result-card show';
+          document.getElementById('cfgResultTitle').textContent = '✅ ¡Gemini AI funciona!';
+          document.getElementById('cfgResultMsg').textContent = r.message + '\n\nTu API Key es válida. Ahora sube un archivo en "Generar Contenido" para crear preguntas personalizadas.';
+          document.getElementById('apiStatus').className = 'status-badge connected';
+          document.getElementById('apiStatus').textContent = '🟢 Gemini Conectado';
+        } else {
+          resultEl.className = 'result-card show error';
+          document.getElementById('cfgResultTitle').textContent = '❌ Gemini no responde';
+          document.getElementById('cfgResultMsg').textContent = r.message;
+        }
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled = false;
+        btn.textContent = '🧪 Probar Conexión Gemini';
+        resultEl.classList.add('show', 'error');
+        document.getElementById('cfgResultTitle').textContent = '❌ Error';
+        document.getElementById('cfgResultMsg').textContent = 'No se pudo conectar: ' + (err ? err.message || err : 'desconocido');
+      })
+      .testGeminiConnection();
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '🧪 Probar Conexión Gemini';
+    alert('Requiere estar desplegada en Google Apps Script.');
   }
 }
 
