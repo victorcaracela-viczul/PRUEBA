@@ -8,10 +8,10 @@ const CONFIG = {
   SHEET_PERSONAL: 'PERSONAL',
   SHEET_RESULTADOS: 'RESULTADOS',
   SHEET_CONTENIDO: 'CONTENIDO_IA',
-  GEMINI_API_KEY: 'AIzaSyALlrf-0Gys2i6S9yrV3CdWoVAHWoA7dkg',
+  GEMINI_API_KEY: 'TU_GEMINI_API_KEY_AQUI',
   OPENAI_API_KEY: '',
   AI_PROVIDER: 'auto', // 'auto' | 'gemini' | 'openai'
-  USE_REAL_API: true
+  USE_REAL_API: false
 };
 
 // Load dynamic config from Script Properties (saved via Admin UI)
