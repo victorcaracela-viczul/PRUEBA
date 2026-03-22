@@ -147,17 +147,7 @@ async function getDataFromAI(){
 }
 
 function simAI(){
-  const all=[
-    {concept:"🪖 Casco",match:"Protección craneal"},{concept:"🥽 Gafas",match:"Protección ocular"},
-    {concept:"🧤 Guantes",match:"Protección de manos"},{concept:"👂 Tapones",match:"Reducir ruido >85dB"},
-    {concept:"🦺 Chaleco",match:"Visibilidad en tránsito"},{concept:"😷 Respirador",match:"Filtrar partículas 95%"},
-    {concept:"👢 Botas acero",match:"Contra aplastamiento"},{concept:"🔗 Arnés",match:"Prevenir caídas"},
-    {concept:"🔴 Prohibición",match:"Acción NO permitida"},{concept:"🟡 Advertencia",match:"Alerta de peligro"},
-    {concept:"🔵 Obligación",match:"Acción obligatoria"},{concept:"🟢 Evacuación",match:"Ruta de escape"},
-    {concept:"⚡ Eléctrico",match:"Contacto con corriente"},{concept:"🔥 Incendio",match:"Material inflamable"},
-    {concept:"📋 IPERC",match:"Identificar Peligros"},{concept:"🔒 LOTO",match:"Bloqueo de energía"},
-  ];
-  return{pairs:all.sort(()=>Math.random()-.5).slice(0,12).map((p,i)=>({id:i+1,...p}))};
+  return{pairs:[{id:1,concept:"📊 Sin datos",match:"Llena Mahjong_Manual"}]};
 }
 
 function genLayout(n){

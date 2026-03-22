@@ -146,33 +146,7 @@ document.addEventListener('DOMContentLoaded',()=>{const s=sessionStorage.getItem
 
 async function getDataFromAI(){return new Promise(r=>{try{google.script.run.withSuccessHandler(function(d){if(d&&d.scenario&&d.hazards)r(d);else r(simAI())}).withFailureHandler(function(){r(simAI())}).getAIContent('simulacion',{})}catch(e){r(simAI())}})}
 function simAI(){
-  const sc=[
-    {scenario:{title:"🏗️ Obra de Construcción",description:"Inspecciona esta obra. Haz clic donde veas peligros.",environment:"construccion"},hazards:[
-      {id:1,name:"Trabajador sin casco",description:"Obrero sin protección craneal",severity:"alta",x:15,y:25,width:14,height:18,solution:"✅ Casco es EPP obligatorio."},
-      {id:2,name:"Andamio sin barandas",description:"Sin protección perimetral",severity:"alta",x:50,y:12,width:22,height:14,solution:"✅ Barandas a 1.05m."},
-      {id:3,name:"Cables expuestos",description:"Cableado sin protección",severity:"alta",x:72,y:55,width:12,height:20,solution:"✅ Canaletas + GFCI."},
-      {id:4,name:"Herramientas al borde",description:"Sin asegurar en filo",severity:"media",x:35,y:8,width:16,height:12,solution:"✅ Rodapié + portaherramientas."},
-      {id:5,name:"Escalera mal apoyada",description:"Sin amarre ni ángulo correcto",severity:"media",x:5,y:50,width:12,height:25,solution:"✅ 75°, amarrar, sobresalir 1m."},
-      {id:6,name:"Excavación sin señalizar",description:"Zanja sin barreras",severity:"alta",x:55,y:72,width:20,height:14,solution:"✅ Barreras + señales."}
-    ]},
-    {scenario:{title:"🔧 Taller de Soldadura",description:"Encuentra las condiciones inseguras del taller.",environment:"taller"},hazards:[
-      {id:1,name:"Soldador sin careta",description:"Sin protección facial",severity:"alta",x:20,y:30,width:14,height:18,solution:"✅ Careta con filtro obligatoria."},
-      {id:2,name:"Cilindros sin asegurar",description:"Gas sin cadena",severity:"alta",x:65,y:20,width:12,height:22,solution:"✅ Cadenas + vertical + capuchón."},
-      {id:3,name:"Material inflamable",description:"Trapos cerca de soldadura",severity:"alta",x:40,y:62,width:18,height:14,solution:"✅ Retirar a +10m."},
-      {id:4,name:"Sin ventilación",description:"Sin extractor de humos",severity:"media",x:10,y:10,width:22,height:12,solution:"✅ Extractores localizados."},
-      {id:5,name:"Cable dañado",description:"Aislamiento roto",severity:"alta",x:45,y:38,width:14,height:12,solution:"✅ Reemplazar inmediatamente."},
-      {id:6,name:"Sin permiso trabajo",description:"Falta permiso caliente",severity:"media",x:80,y:65,width:12,height:18,solution:"✅ Permiso firmado obligatorio."}
-    ]},
-    {scenario:{title:"☢️ Almacén Químico",description:"Identifica violaciones a normas de almacenamiento.",environment:"almacen"},hazards:[
-      {id:1,name:"Químicos incompatibles",description:"Ácidos junto a bases",severity:"alta",x:15,y:28,width:20,height:16,solution:"✅ Separar. Mín 3m."},
-      {id:2,name:"Sin ducha emergencia",description:"Sin ducha ni lavaojos",severity:"alta",x:78,y:15,width:14,height:20,solution:"✅ A menos de 10 seg."},
-      {id:3,name:"Envases sin etiqueta",description:"Sin identificación SGA",severity:"alta",x:42,y:45,width:18,height:14,solution:"✅ Etiqueta SGA obligatoria."},
-      {id:4,name:"Derrames en piso",description:"Sin contención",severity:"media",x:30,y:72,width:20,height:12,solution:"✅ Kit antiderrames."},
-      {id:5,name:"Ventilación deficiente",description:"Sin extracción vapores",severity:"media",x:55,y:8,width:22,height:12,solution:"✅ 6 renovaciones/hora."},
-      {id:6,name:"MSDS incompletas",description:"Hojas faltantes",severity:"media",x:5,y:55,width:12,height:18,solution:"✅ MSDS para toda sustancia."}
-    ]}
-  ];
-  return sc[Math.floor(Math.random()*sc.length)];
+  return{scenario:{title:"Sin escenario",description:"Llena la hoja Simulacion_Manual en tu Google Sheet.",environment:"vacio"},hazards:[{id:1,name:"Sin datos",description:"Configura tus escenarios",severity:"baja",x:50,y:50,width:20,height:20,solution:"Abre Simulacion_Manual y agrega filas."}]};
 }
 
 async function startGame(){

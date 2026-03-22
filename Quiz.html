@@ -134,24 +134,7 @@ document.addEventListener('DOMContentLoaded',()=>{const s=sessionStorage.getItem
 
 async function getDataFromAI(){return new Promise(r=>{try{google.script.run.withSuccessHandler(function(d){if(d&&d.questions)r(d);else r(simAI())}).withFailureHandler(function(){r(simAI())}).getAIContent('quiz',{count:10})}catch(e){r(simAI())}})}
 function simAI(){
-  const p=[
-    {question:"¿Altura mínima para trabajo en altura?",options:["1.00 m","1.50 m","1.80 m","2.50 m"],correct:2,explanation:"Desde 1.80m sobre el piso se considera trabajo en altura."},
-    {question:"¿Señal triangular amarilla indica...?",options:["Prohibición","Advertencia","Obligación","Emergencia"],correct:1,explanation:"Triángulo amarillo = ADVERTENCIA de peligro."},
-    {question:"¿Extintor para fuegos eléctricos?",options:["Agua","Espuma","CO2","Tipo K"],correct:2,explanation:"CO2 no conduce electricidad, ideal para equipos eléctricos."},
-    {question:"¿Qué significa IPERC?",options:["Inspección Eléctrica","Identificar Peligros, Evaluar Riesgos y Controles","Informe Prevención","Indicador Peligrosidad"],correct:1,explanation:"IPERC: base de la gestión de seguridad."},
-    {question:"¿Tiempo máximo a 85 dB sin protección?",options:["2 horas","4 horas","8 horas","12 horas"],correct:2,explanation:"85 dB por 8 horas. +3 dB = mitad de tiempo."},
-    {question:"¿Qué es LOTO?",options:["Limpieza y Orden","Bloqueo y Etiquetado","Lista Observaciones","Logística"],correct:1,explanation:"Aísla fuentes de energía durante mantenimiento."},
-    {question:"¿Peso máximo levantamiento manual?",options:["15 kg","20 kg","25 kg","30 kg"],correct:2,explanation:"Máximo 25 kg. Más = ayuda mecánica."},
-    {question:"¿Cuándo inspeccionar arnés?",options:["Cada semana","Antes de cada uso","Cada mes","Cada 6 meses"],correct:1,explanation:"SIEMPRE antes de cada uso."},
-    {question:"¿Primero ante accidente?",options:["Llamar jefe","Asegurar escena","Mover herido","Buscar culpables"],correct:1,explanation:"Primero ASEGURAR LA ESCENA."},
-    {question:"¿Color señales de obligación?",options:["Rojo","Amarillo","Azul","Verde"],correct:2,explanation:"AZUL = Obligación, acciones que se DEBEN cumplir."},
-    {question:"¿Qué es ATS?",options:["Área Trabajo","Análisis Trabajo Seguro","Auditoría","Acta"],correct:1,explanation:"Documenta pasos, peligros y controles."},
-    {question:"¿Fuego de metales = clase...?",options:["A","B","C","D"],correct:3,explanation:"Clase D: metales como magnesio, titanio."},
-    {question:"¿Mín. vías evacuación +50 personas?",options:["1","2","3","4"],correct:1,explanation:"Mínimo 2 vías independientes señalizadas."},
-    {question:"¿Polvo de sílice es riesgo...?",options:["Físico","Químico","Biológico","Ergonómico"],correct:1,explanation:"QUÍMICO: causa silicosis irreversible."},
-    {question:"¿Hoja MSDS contiene...?",options:["Manual seguridad","Datos sustancias","Mapa señales","Supervisión"],correct:1,explanation:"Propiedades, peligros y manejo de químicos."},
-  ];
-  return{questions:p.sort(()=>Math.random()-.5).slice(0,10).map((q,i)=>({id:i+1,...q}))};
+  return{questions:[{id:1,question:"Sin datos. Llena la hoja Quiz_Manual en tu Google Sheet.",options:["Ir al Admin","Abrir Sheet","Agregar preguntas","Todas"],correct:3,explanation:"Abre tu Google Sheet y llena la hoja Quiz_Manual."}]};
 }
 
 async function startGame(){

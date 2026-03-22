@@ -105,29 +105,7 @@ document.addEventListener('DOMContentLoaded',()=>{const s=sessionStorage.getItem
 
 async function getDataFromAI(){return new Promise(r=>{try{google.script.run.withSuccessHandler(function(d){if(d&&d.categories&&d.items)r(d);else r(simAI())}).withFailureHandler(function(){r(simAI())}).getAIContent('dragdrop',{items:9})}catch(e){r(simAI())}})}
 function simAI(){
-  const sets=[{categories:[{name:"EPP Obligatorio",color:"#e74c3c"},{name:"Señalización",color:"#f39c12"},{name:"Procedimiento",color:"#3498db"}],items:[
-    {text:"Casco de seguridad",category:"EPP Obligatorio",explanation:"EPP de protección craneal obligatorio en obra."},
-    {text:"Señal prohibido fumar",category:"Señalización",explanation:"Señal roja circular de prohibición."},
-    {text:"Permiso trabajo caliente",category:"Procedimiento",explanation:"Documento requerido antes de soldadura."},
-    {text:"Arnés anticaídas",category:"EPP Obligatorio",explanation:"Obligatorio sobre 1.80m de altura."},
-    {text:"Triángulo amarillo",category:"Señalización",explanation:"Señal de advertencia de peligro."},
-    {text:"Análisis Trabajo Seguro",category:"Procedimiento",explanation:"Documenta pasos y controles."},
-    {text:"Guantes dieléctricos",category:"EPP Obligatorio",explanation:"Protección contra descargas."},
-    {text:"Flecha verde evacuación",category:"Señalización",explanation:"Ruta de escape en emergencia."},
-    {text:"Bloqueo LOTO",category:"Procedimiento",explanation:"Aislar energías en mantenimiento."}
-  ]},{categories:[{name:"Riesgo Físico",color:"#e74c3c"},{name:"Riesgo Químico",color:"#9b59b6"},{name:"Riesgo Ergonómico",color:"#27ae60"}],items:[
-    {text:"Ruido > 85 dB",category:"Riesgo Físico",explanation:"Causa daño auditivo irreversible."},
-    {text:"Vapores solventes",category:"Riesgo Químico",explanation:"Afectan sistema respiratorio."},
-    {text:"Posturas forzadas",category:"Riesgo Ergonómico",explanation:"Causan trastornos musculoesqueléticos."},
-    {text:"Vibraciones",category:"Riesgo Físico",explanation:"Daño vascular y neurológico."},
-    {text:"Ácido sulfúrico",category:"Riesgo Químico",explanation:"Quemaduras graves en piel."},
-    {text:"Carga > 25 kg",category:"Riesgo Ergonómico",explanation:"Riesgo de lesión lumbar."},
-    {text:"Radiación UV",category:"Riesgo Físico",explanation:"Riesgo de cáncer de piel."},
-    {text:"Polvo de sílice",category:"Riesgo Químico",explanation:"Causa silicosis irreversible."},
-    {text:"Movimientos repetitivos",category:"Riesgo Ergonómico",explanation:"Túnel carpiano."}
-  ]}];
-  const s=sets[Math.floor(Math.random()*sets.length)];
-  return{categories:s.categories,items:s.items.sort(()=>Math.random()-.5).map((x,i)=>({id:i+1,...x}))};
+  return{categories:[{name:"Sin datos",color:"#999"}],items:[{id:1,text:"Llena DragDrop_Manual",category:"Sin datos",explanation:"Abre tu Google Sheet y completa la hoja DragDrop_Manual."}]};
 }
 
 async function startGame(){

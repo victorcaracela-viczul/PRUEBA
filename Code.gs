@@ -826,116 +826,18 @@ function deleteContent(row) {
 }
 
 // ============================================================
-// 📦 SIMULADOR DE IA (Banco de datos SST)
+// 📦 RESPALDO VACÍO — Solo se usa si NO hay datos en hojas manuales
 // ============================================================
 function simulateAIResponse(gameType, params) {
+  // Retorna estructura mínima indicando que se deben llenar las hojas manuales
   switch(gameType) {
-    case 'mahjong': return genMahjong();
-    case 'memoria': return genMemoria();
-    case 'dragdrop': return genDragDrop();
-    case 'quiz': return genQuiz();
-    case 'simulacion': return genSimulacion();
-    default: return genQuiz();
+    case 'mahjong': return { pairs: [{id:1, concept:"📊 Sin datos", match:"Llena la hoja Mahjong_Manual"}] };
+    case 'memoria': return { pairs: [{id:1, front:"📊", back:"SIN DATOS", explanation:"Llena la hoja Memoria_Manual en tu Google Sheet."}] };
+    case 'dragdrop': return { categories: [{name:"Sin datos",color:"#999"}], items: [{id:1, text:"Llena la hoja DragDrop_Manual", category:"Sin datos", explanation:"Abre tu Google Sheet y completa la hoja DragDrop_Manual."}] };
+    case 'quiz': return { questions: [{id:1, question:"No hay preguntas configuradas. Llena la hoja Quiz_Manual.", options:["Ir al Admin","Abrir Google Sheet","Agregar preguntas","Todas las anteriores"], correct:3, explanation:"Ve a tu Google Sheet y llena la hoja Quiz_Manual con tus propias preguntas."}] };
+    case 'simulacion': return { scenario: {title:"Sin escenario", description:"Llena la hoja Simulacion_Manual en tu Google Sheet.", environment:"vacio"}, hazards: [{id:1, name:"Sin datos", description:"Configura tus escenarios", severity:"baja", x:50, y:50, width:20, height:20, solution:"Abre Simulacion_Manual y agrega filas."}] };
+    default: return { questions: [{id:1, question:"Sin datos. Configura las hojas manuales.", options:["Opción A","Opción B","Opción C","Opción D"], correct:0, explanation:"Usa el panel Admin para crear las hojas manuales."}] };
   }
-}
-
-function genMahjong() {
-  const all = [
-    {concept:"🪖 Casco", match:"Protección craneal contra impactos"},
-    {concept:"🥽 Gafas", match:"Protección ocular ante partículas"},
-    {concept:"🧤 Guantes", match:"Protección de manos contra químicos"},
-    {concept:"👂 Tapones", match:"Reducción de ruido mayor a 85dB"},
-    {concept:"🦺 Chaleco", match:"Visibilidad en zonas de tránsito"},
-    {concept:"😷 Respirador", match:"Filtración de partículas 95%"},
-    {concept:"👢 Botas", match:"Contra aplastamiento en pies"},
-    {concept:"🔗 Arnés", match:"Prevención caídas sobre 1.80m"},
-    {concept:"🔴 Prohibición", match:"Señal que indica acción NO permitida"},
-    {concept:"🟡 Advertencia", match:"Señal que alerta sobre peligro"},
-    {concept:"🔵 Obligación", match:"Señal de acción obligatoria"},
-    {concept:"🟢 Evacuación", match:"Señal de ruta de escape"},
-    {concept:"⚡ Eléctrico", match:"Peligro por contacto con corriente"},
-    {concept:"🔥 Incendio", match:"Peligro por material inflamable"},
-    {concept:"📋 IPERC", match:"Identificar Peligros y Evaluar Riesgos"},
-    {concept:"🔒 LOTO", match:"Bloqueo y etiquetado de energía"},
-    {concept:"📝 ATS", match:"Análisis de Trabajo Seguro"},
-    {concept:"🚨 Emergencia", match:"Protocolo ante situación crítica"},
-  ];
-  const shuffled = all.sort(() => Math.random() - 0.5).slice(0, 12);
-  return { pairs: shuffled.map((p,i) => ({id:i+1, concept:p.concept, match:p.match})) };
-}
-
-function genMemoria() {
-  const pool = [
-    {front:"🪖",back:"CASCO",explanation:"El casco protege la cabeza contra impactos. Obligatorio en zonas con riesgo de caída de objetos."},
-    {front:"🥽",back:"GAFAS",explanation:"Protegen los ojos contra partículas, salpicaduras y radiación UV."},
-    {front:"🧤",back:"GUANTES",explanation:"Protegen manos contra cortes, quemaduras y productos químicos."},
-    {front:"👂",back:"PROTECCIÓN AUDITIVA",explanation:"Obligatoria cuando el ruido supera 85 dB durante 8 horas."},
-    {front:"🦺",back:"CHALECO",explanation:"Aumenta la visibilidad del trabajador en zonas con tránsito."},
-    {front:"😷",back:"RESPIRADOR",explanation:"Filtra partículas y gases. El N95 filtra el 95% de partículas."},
-    {front:"👢",back:"BOTAS",explanation:"Punta de acero protege contra aplastamiento y perforación."},
-    {front:"🔗",back:"ARNÉS",explanation:"Obligatorio sobre 1.80m. Inspeccionar antes de cada uso."},
-    {front:"🔥",back:"EXTINTOR",explanation:"Conocer ubicación y uso del extintor más cercano es obligatorio."},
-    {front:"🚑",back:"PRIMEROS AUXILIOS",explanation:"Botiquín accesible y personal capacitado es obligatorio."},
-    {front:"📋",back:"IPERC",explanation:"Base de la gestión SST: Identificar Peligros, Evaluar Riesgos."},
-    {front:"🔒",back:"LOTO",explanation:"Bloqueo y Etiquetado: aislar energías peligrosas en mantenimiento."},
-  ];
-  return { pairs: pool.sort(() => Math.random()-0.5).slice(0,8).map((p,i) => ({id:i+1,...p})) };
-}
-
-function genDragDrop() {
-  const sets = [
-    {
-      categories:[{name:"EPP Obligatorio",color:"#e74c3c"},{name:"Señalización",color:"#f39c12"},{name:"Procedimiento",color:"#3498db"}],
-      items:[
-        {text:"Casco de seguridad",category:"EPP Obligatorio",explanation:"EPP de protección craneal obligatorio en obra."},
-        {text:"Señal prohibido fumar",category:"Señalización",explanation:"Señal roja que prohíbe fumar en el área."},
-        {text:"Permiso trabajo caliente",category:"Procedimiento",explanation:"Documento requerido antes de soldadura o fuego."},
-        {text:"Arnés anticaídas",category:"EPP Obligatorio",explanation:"EPP obligatorio sobre 1.80m de altura."},
-        {text:"Triángulo amarillo peligro",category:"Señalización",explanation:"Señal de advertencia sobre peligro existente."},
-        {text:"Análisis Trabajo Seguro",category:"Procedimiento",explanation:"Documento con pasos, peligros y controles."},
-        {text:"Guantes dieléctricos",category:"EPP Obligatorio",explanation:"EPP contra descargas eléctricas."},
-        {text:"Flecha verde evacuación",category:"Señalización",explanation:"Indica dirección de escape en emergencia."},
-        {text:"Bloqueo LOTO",category:"Procedimiento",explanation:"Aislamiento de energías en mantenimiento."},
-      ]
-    },
-    {
-      categories:[{name:"Riesgo Físico",color:"#e74c3c"},{name:"Riesgo Químico",color:"#9b59b6"},{name:"Riesgo Ergonómico",color:"#27ae60"}],
-      items:[
-        {text:"Ruido mayor a 85 dB",category:"Riesgo Físico",explanation:"Causa daño auditivo irreversible."},
-        {text:"Vapores de solventes",category:"Riesgo Químico",explanation:"Afectan vías respiratorias y sistema nervioso."},
-        {text:"Posturas forzadas",category:"Riesgo Ergonómico",explanation:"Causan trastornos musculoesqueléticos."},
-        {text:"Vibraciones maquinaria",category:"Riesgo Físico",explanation:"Causan daño vascular y neurológico."},
-        {text:"Ácido sulfúrico",category:"Riesgo Químico",explanation:"Corrosivo, quemaduras graves en piel."},
-        {text:"Carga manual > 25 kg",category:"Riesgo Ergonómico",explanation:"Riesgo de lesión lumbar."},
-        {text:"Radiación UV solar",category:"Riesgo Físico",explanation:"Quemaduras y riesgo de cáncer de piel."},
-        {text:"Polvo de sílice",category:"Riesgo Químico",explanation:"Causa silicosis, enfermedad irreversible."},
-        {text:"Movimientos repetitivos",category:"Riesgo Ergonómico",explanation:"Causan túnel carpiano y tendinitis."},
-      ]
-    }
-  ];
-  const s = sets[Math.floor(Math.random()*sets.length)];
-  return { categories: s.categories, items: s.items.sort(() => Math.random()-0.5).map((it,i) => ({id:i+1,...it})) };
-}
-
-function genQuiz() {
-  const pool = [
-    {question:"¿Altura mínima para 'trabajo en altura'?",options:["1.00 m","1.50 m","1.80 m","2.50 m"],correct:2,explanation:"Se considera trabajo en altura desde 1.80m sobre el nivel del piso."},
-    {question:"¿Qué indica una señal triangular amarilla?",options:["Prohibición","Advertencia","Obligación","Emergencia"],correct:1,explanation:"Triángulo amarillo = ADVERTENCIA. Alerta sobre peligros."},
-    {question:"¿Extintor ideal para fuegos eléctricos?",options:["Agua","Espuma","CO2","Tipo K"],correct:2,explanation:"CO2 no conduce electricidad ni deja residuos."},
-    {question:"¿Qué significa IPERC?",options:["Inspección Eléctrica","Identificación de Peligros y Evaluación de Riesgos","Informe de Prevención","Indicador de Peligrosidad"],correct:1,explanation:"IPERC: Identificar Peligros, Evaluar Riesgos y Controles."},
-    {question:"¿Tiempo máximo a 85 dB sin protección?",options:["2 horas","4 horas","8 horas","12 horas"],correct:2,explanation:"Límite: 85 dB por 8 horas. +3 dB = mitad de tiempo."},
-    {question:"¿Qué es LOTO?",options:["Limpieza y Orden","Bloqueo y Etiquetado","Lista de Observaciones","Logística Operativa"],correct:1,explanation:"LOTO aísla fuentes de energía durante mantenimiento."},
-    {question:"¿Peso máximo para levantamiento manual?",options:["15 kg","20 kg","25 kg","30 kg"],correct:2,explanation:"Máximo 25 kg. Más requiere ayuda mecánica."},
-    {question:"¿Cuándo inspeccionar un arnés?",options:["Cada semana","Antes de cada uso","Cada mes","Cada 6 meses"],correct:1,explanation:"SIEMPRE antes de cada uso: costuras, hebillas, cintas."},
-    {question:"¿Primero ante un accidente?",options:["Llamar al jefe","Asegurar la escena","Mover al herido","Buscar culpables"],correct:1,explanation:"Primero ASEGURAR LA ESCENA para evitar más víctimas."},
-    {question:"¿Color de señales de obligación?",options:["Rojo","Amarillo","Azul","Verde"],correct:2,explanation:"AZUL = Obligación. Indica acciones que se DEBEN cumplir."},
-    {question:"¿Qué es ATS?",options:["Área de Trabajo","Análisis de Trabajo Seguro","Auditoría Técnica","Acta de Trabajo"],correct:1,explanation:"ATS documenta pasos, peligros y controles de una tarea."},
-    {question:"¿Fuego de metales combustibles?",options:["Clase A","Clase B","Clase C","Clase D"],correct:3,explanation:"Clase D: metales como magnesio, titanio, sodio."},
-    {question:"¿Vías evacuación mínimas para +50 personas?",options:["1","2","3","4"],correct:1,explanation:"Mínimo 2 vías independientes y señalizadas."},
-    {question:"¿Polvo de sílice es riesgo...?",options:["Físico","Químico","Biológico","Ergonómico"],correct:1,explanation:"QUÍMICO: causa silicosis, enfermedad pulmonar irreversible."},
-    {question:"¿Qué contiene la Hoja MSDS?",options:["Manual seguridad","Datos seguridad sustancias","Mapa señalización","Método supervisión"],correct:1,explanation:"MSDS: propiedades, peligros, manejo de sustancias químicas."},
-  ];
-  return { questions: pool.sort(() => Math.random()-0.5).slice(0,10).map((q,i) => ({id:i+1,...q})) };
 }
 
 // ============================================================
@@ -1193,41 +1095,4 @@ function leerDatosManual(gameType) {
   }
 }
 
-function genSimulacion() {
-  const scenes = [
-    {
-      scenario:{title:"🏗️ Obra de Construcción",description:"Inspecciona esta obra. Haz clic en las zonas donde detectes peligros o condiciones inseguras.",environment:"construccion"},
-      hazards:[
-        {id:1,name:"Trabajador sin casco",description:"Obrero sin protección craneal",severity:"alta",x:15,y:25,width:14,height:18,solution:"Detener actividad. Casco es EPP obligatorio."},
-        {id:2,name:"Andamio sin barandas",description:"Plataforma sin protección perimetral",severity:"alta",x:50,y:12,width:22,height:14,solution:"Instalar barandas a 1.05m con rodapié."},
-        {id:3,name:"Cables expuestos",description:"Cableado sin protección en zona húmeda",severity:"alta",x:72,y:55,width:12,height:20,solution:"Canaletas + conexiones GFCI."},
-        {id:4,name:"Herramientas al borde",description:"Objetos sin asegurar en filo",severity:"media",x:35,y:8,width:16,height:12,solution:"Rodapié + cinturones portaherramientas."},
-        {id:5,name:"Escalera mal apoyada",description:"Sin amarre y ángulo incorrecto",severity:"media",x:5,y:50,width:12,height:25,solution:"Ángulo 75°, amarrar arriba, sobresalir 1m."},
-        {id:6,name:"Excavación sin señalizar",description:"Zanja sin barreras ni señales",severity:"alta",x:55,y:72,width:20,height:14,solution:"Barreras rígidas + señales de advertencia."},
-      ]
-    },
-    {
-      scenario:{title:"🔧 Taller de Soldadura",description:"Inspecciona este taller. Encuentra todas las condiciones inseguras.",environment:"taller"},
-      hazards:[
-        {id:1,name:"Soldador sin careta",description:"Sin protección facial",severity:"alta",x:20,y:30,width:14,height:18,solution:"Careta con filtro adecuado obligatoria."},
-        {id:2,name:"Cilindros sin asegurar",description:"Gas comprimido sin cadena",severity:"alta",x:65,y:20,width:12,height:22,solution:"Cadenas + posición vertical + capuchón."},
-        {id:3,name:"Material inflamable",description:"Trapos con aceite cerca de soldadura",severity:"alta",x:40,y:62,width:18,height:14,solution:"Retirar a +10m. Mantas ignífugas."},
-        {id:4,name:"Sin ventilación",description:"Sin extractor de humos",severity:"media",x:10,y:10,width:22,height:12,solution:"Extractores localizados por estación."},
-        {id:5,name:"Cable dañado",description:"Aislamiento roto, cobre expuesto",severity:"alta",x:45,y:38,width:14,height:12,solution:"Reemplazar inmediatamente."},
-        {id:6,name:"Sin permiso de trabajo",description:"Falta permiso trabajo en caliente",severity:"media",x:80,y:65,width:12,height:18,solution:"Permiso firmado y vigente obligatorio."},
-      ]
-    },
-    {
-      scenario:{title:"☢️ Almacén Químico",description:"Inspecciona el almacén. Identifica violaciones a normas de almacenamiento.",environment:"almacen"},
-      hazards:[
-        {id:1,name:"Químicos incompatibles",description:"Ácidos junto a bases",severity:"alta",x:15,y:28,width:20,height:16,solution:"Separar según matriz compatibilidad. Mín 3m."},
-        {id:2,name:"Sin ducha emergencia",description:"Sin ducha ni lavaojos",severity:"alta",x:78,y:15,width:14,height:20,solution:"Ducha y lavaojos a menos de 10 seg."},
-        {id:3,name:"Envases sin etiqueta",description:"Sin identificación SGA",severity:"alta",x:42,y:45,width:18,height:14,solution:"Etiqueta SGA con pictogramas obligatoria."},
-        {id:4,name:"Derrames en piso",description:"Líquido sin contención",severity:"media",x:30,y:72,width:20,height:12,solution:"Kit antiderrames + diques de contención."},
-        {id:5,name:"Ventilación deficiente",description:"Sin extracción de vapores",severity:"media",x:55,y:8,width:22,height:12,solution:"Ventilación forzada, 6 renovaciones/hora."},
-        {id:6,name:"MSDS incompletas",description:"Hojas de Seguridad faltantes",severity:"media",x:5,y:55,width:12,height:18,solution:"MSDS actualizadas para toda sustancia."},
-      ]
-    }
-  ];
-  return scenes[Math.floor(Math.random()*scenes.length)];
-}
+// genSimulacion eliminado — los datos ahora vienen de Simulacion_Manual

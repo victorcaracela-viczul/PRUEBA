@@ -122,19 +122,7 @@ async function getDataFromAI(){
   return new Promise(r=>{try{google.script.run.withSuccessHandler(function(d){if(d&&d.pairs)r(d);else r(simAI())}).withFailureHandler(function(){r(simAI())}).getAIContent('memoria',{pairs:8})}catch(e){r(simAI())}});
 }
 function simAI(){
-  const p=[
-    {front:"🪖",back:"CASCO",explanation:"El casco protege la cabeza contra impactos. Obligatorio en zonas de construcción."},
-    {front:"🥽",back:"GAFAS",explanation:"Protegen ojos contra partículas, salpicaduras y radiación UV."},
-    {front:"🧤",back:"GUANTES",explanation:"Protegen manos contra cortes, quemaduras y químicos."},
-    {front:"👂",back:"AUDITIVA",explanation:"Obligatoria cuando el ruido supera 85 dB durante 8 horas."},
-    {front:"🦺",back:"CHALECO",explanation:"Aumenta visibilidad del trabajador en zonas con tránsito."},
-    {front:"😷",back:"RESPIRADOR",explanation:"N95 filtra 95% de partículas. Esencial en ambientes con polvo."},
-    {front:"👢",back:"BOTAS",explanation:"Punta de acero protege contra aplastamiento y perforación."},
-    {front:"🔗",back:"ARNÉS",explanation:"Obligatorio sobre 1.80m. Inspeccionar antes de cada uso."},
-    {front:"🔥",back:"EXTINTOR",explanation:"Conocer ubicación y uso del extintor más cercano es obligatorio."},
-    {front:"📋",back:"IPERC",explanation:"Identificar Peligros, Evaluar Riesgos y Controles. Base de SST."},
-  ];
-  return{pairs:p.sort(()=>Math.random()-.5).slice(0,8).map((x,i)=>({id:i+1,...x}))};
+  return{pairs:[{id:1,front:"📊",back:"SIN DATOS",explanation:"Llena la hoja Memoria_Manual en tu Google Sheet."}]};
 }
 
 async function startGame(){
