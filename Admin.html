@@ -286,7 +286,8 @@ function processFile(file) {
     return;
   }
   selectedFile = file;
-  
+  selectedFileBase64 = null; // Reset until ready
+
   // Show preview
   const icons = { 'pdf':'📕', 'jpg':'🖼️', 'jpeg':'🖼️', 'png':'🖼️', 'doc':'📄', 'docx':'📄', 'txt':'📝' };
   const ext = file.name.split('.').pop().toLowerCase();
@@ -294,11 +295,24 @@ function processFile(file) {
   document.getElementById('fpName').textContent = file.name;
   document.getElementById('fpSize').textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
   document.getElementById('filePreview').classList.add('show');
-  
+
+  // Disable generate button while reading file
+  document.getElementById('btnGenerate').disabled = true;
+  document.getElementById('btnGenerate').textContent = '📂 Leyendo archivo...';
+
   // Convert to base64
   const reader = new FileReader();
   reader.onload = () => {
     selectedFileBase64 = reader.result.split(',')[1];
+    document.getElementById('btnGenerate').disabled = false;
+    document.getElementById('btnGenerate').textContent = '🤖 Generar Contenido con IA';
+  };
+  reader.onerror = () => {
+    alert('Error al leer el archivo. Intenta de nuevo.');
+    selectedFile = null;
+    selectedFileBase64 = null;
+    document.getElementById('btnGenerate').disabled = false;
+    document.getElementById('btnGenerate').textContent = '🤖 Generar Contenido con IA';
   };
   reader.readAsDataURL(file);
 }
@@ -317,63 +331,75 @@ function selectGame(el, game) {
 }
 
 function generateContent() {
-  if (!selectedGame) { alert('Selecciona un juego primero'); return; }
-  
+  // Validaciones
+  if (!selectedFile || !selectedFileBase64) {
+    alert('⚠️ Primero sube un archivo (documento, imagen o PDF) para que la IA genere contenido basado en él.');
+    return;
+  }
+  if (!selectedGame) {
+    alert('⚠️ Selecciona para qué juego quieres generar contenido.');
+    return;
+  }
+
   const btn = document.getElementById('btnGenerate');
   const proc = document.getElementById('processing');
   const result = document.getElementById('resultCard');
-  
+
   btn.disabled = true;
   proc.classList.add('show');
   result.classList.remove('show');
   result.classList.remove('error');
-  
-  const mimeType = selectedFile ? selectedFile.type : null;
-  
+
+  const mimeType = selectedFile.type || 'application/octet-stream';
+  const fileName = selectedFile.name;
+
   try {
     google.script.run
-      .withSuccessHandler(r => {
+      .withSuccessHandler(function(r) {
         btn.disabled = false;
         proc.classList.remove('show');
         result.classList.add('show');
-        
-        if (r.success) {
-          document.getElementById('resultTitle').textContent = '✅ ¡Contenido generado exitosamente!';
-          document.getElementById('resultMsg').textContent = 
-            `Fuente: ${r.source === 'gemini' ? 'Gemini AI' : 'Simulador SST'} — El contenido ya está disponible para el juego.`;
-          document.getElementById('previewData').textContent = JSON.stringify(r.data, null, 2).substring(0, 800) + '...';
+
+        if (r && r.success) {
+          if (r.source === 'gemini') {
+            document.getElementById('resultTitle').textContent = '✅ ¡Contenido generado por Gemini AI!';
+            document.getElementById('resultMsg').textContent =
+              'Gemini analizó tu archivo "' + fileName + '" y generó contenido personalizado para el juego. Ya está guardado y disponible.';
+          } else {
+            result.classList.add('error');
+            document.getElementById('resultTitle').textContent = '⚠️ Gemini no pudo procesar el archivo';
+            document.getElementById('resultMsg').textContent =
+              'Se guardó contenido genérico. Posibles causas: API Key inválida, archivo no soportado, o Gemini no pudo extraer contenido SST. Ve a "Configuración IA" para verificar tu conexión.';
+          }
+          document.getElementById('previewData').textContent = JSON.stringify(r.data, null, 2).substring(0, 1200);
         } else {
           result.classList.add('error');
-          document.getElementById('resultTitle').textContent = '❌ Error';
-          document.getElementById('resultMsg').textContent = r.error || 'Error al generar contenido';
+          document.getElementById('resultTitle').textContent = '❌ Error al generar';
+          document.getElementById('resultMsg').textContent = (r && r.error) ? r.error : 'Error desconocido. Verifica la configuración.';
+          document.getElementById('previewData').textContent = '';
         }
       })
-      .withFailureHandler(err => {
+      .withFailureHandler(function(err) {
         btn.disabled = false;
         proc.classList.remove('show');
-        // Fallback: simulate locally
-        simulateGeneration();
+        result.classList.add('show');
+        result.classList.add('error');
+        document.getElementById('resultTitle').textContent = '❌ Error de conexión con Apps Script';
+        document.getElementById('resultMsg').textContent =
+          'No se pudo conectar con el servidor. Verifica que:\n1. El proyecto esté desplegado como Web App\n2. La API Key y Sheet ID estén configurados en "Configuración IA"\n\nError: ' + (err ? err.message || err : 'desconocido');
+        document.getElementById('previewData').textContent = '';
       })
-      .processUploadedFile(selectedFileBase64, selectedFile ? selectedFile.name : 'manual', mimeType, selectedGame);
+      .processUploadedFile(selectedFileBase64, fileName, mimeType, selectedGame);
   } catch(e) {
     btn.disabled = false;
     proc.classList.remove('show');
-    simulateGeneration();
+    result.classList.add('show');
+    result.classList.add('error');
+    document.getElementById('resultTitle').textContent = '❌ No se puede conectar';
+    document.getElementById('resultMsg').textContent =
+      'Este panel necesita estar desplegado en Google Apps Script para generar contenido con IA. Asegúrate de:\n1. Tener el proyecto en Apps Script (script.google.com)\n2. Implementar como Web App\n3. Configurar API Key en "Configuración IA"';
+    document.getElementById('previewData').textContent = '';
   }
-}
-
-function simulateGeneration() {
-  const result = document.getElementById('resultCard');
-  result.classList.add('show');
-  result.classList.add('error');
-
-  const gameNames = { mahjong:'Mahjong', memoria:'Memoria', dragdrop:'Drag & Drop', quiz:'Quiz', simulacion:'Simulación' };
-
-  document.getElementById('resultTitle').textContent = '⚠️ Contenido genérico (IA no conectada)';
-  document.getElementById('resultMsg').textContent =
-    `Se generó contenido PREDETERMINADO para ${gameNames[selectedGame]}, NO basado en tu documento. Para que Gemini analice tus archivos y genere preguntas personalizadas, ve a la pestaña "Configuración IA" y guarda tu API Key de Gemini.`;
-  document.getElementById('previewData').textContent =
-    '⚠️ Tu documento NO fue procesado.\n\nPara activar la IA:\n1. Ve a la pestaña "Configuración IA"\n2. Ingresa tu Gemini API Key (gratis en aistudio.google.com)\n3. Ingresa el ID de tu Google Sheet\n4. Haz clic en "Guardar Configuración"\n5. Vuelve aquí y sube tu documento de nuevo';
 }
 
 // Tabs

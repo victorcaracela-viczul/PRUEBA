@@ -158,21 +158,36 @@ function getConfigStatus() {
 
 function callGeminiAI(prompt, fileData) {
   if (!CONFIG.USE_REAL_API || CONFIG.GEMINI_API_KEY === 'TU_GEMINI_API_KEY_AQUI') {
-    return null; // Will use fallback
+    Logger.log('Gemini SKIP: USE_REAL_API=' + CONFIG.USE_REAL_API + ', key configured=' + (CONFIG.GEMINI_API_KEY !== 'TU_GEMINI_API_KEY_AQUI'));
+    return null;
   }
   try {
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + CONFIG.GEMINI_API_KEY;
-    
-    const parts = [{ text: prompt }];
-    
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + CONFIG.GEMINI_API_KEY;
+
+    var parts = [{ text: prompt }];
+
     // If file data is provided (base64), add as inline data
     if (fileData && fileData.base64 && fileData.mimeType) {
-      parts.unshift({
-        inlineData: { mimeType: fileData.mimeType, data: fileData.base64 }
-      });
+      // Only send supported mime types for inline data
+      var supportedTypes = ['image/jpeg','image/png','image/webp','image/gif','application/pdf'];
+      if (supportedTypes.indexOf(fileData.mimeType) !== -1) {
+        parts.unshift({
+          inlineData: { mimeType: fileData.mimeType, data: fileData.base64 }
+        });
+      } else {
+        // For unsupported types (doc, docx, txt), try to decode text and include in prompt
+        try {
+          var decoded = Utilities.newBlob(Utilities.base64Decode(fileData.base64)).getDataAsString();
+          if (decoded && decoded.length > 10) {
+            parts[0].text = prompt + '\n\n--- CONTENIDO DEL DOCUMENTO ---\n' + decoded.substring(0, 15000);
+          }
+        } catch(decErr) {
+          Logger.log('Could not decode file as text: ' + decErr.message);
+        }
+      }
     }
-    
-    const payload = {
+
+    var payload = {
       contents: [{ parts: parts }],
       generationConfig: {
         temperature: 0.7,
@@ -180,25 +195,41 @@ function callGeminiAI(prompt, fileData) {
         responseMimeType: "application/json"
       }
     };
-    
-    const options = {
+
+    var options = {
       method: 'post',
       contentType: 'application/json',
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     };
-    
-    const response = UrlFetchApp.fetch(url, options);
-    const result = JSON.parse(response.getContentText());
-    
+
+    var response = UrlFetchApp.fetch(url, options);
+    var httpCode = response.getResponseCode();
+    var responseText = response.getContentText();
+
+    if (httpCode !== 200) {
+      Logger.log('Gemini HTTP ' + httpCode + ': ' + responseText.substring(0, 300));
+      return null;
+    }
+
+    var result = JSON.parse(responseText);
+
     if (result.candidates && result.candidates[0] && result.candidates[0].content) {
-      const text = result.candidates[0].content.parts[0].text;
+      var text = result.candidates[0].content.parts[0].text;
+      Logger.log('Gemini raw response (first 500 chars): ' + text.substring(0, 500));
       try { return JSON.parse(text); } catch(e) {
-        const match = text.match(/\{[\s\S]*\}/);
-        if (match) return JSON.parse(match[0]);
+        // Try to extract JSON from response
+        var match = text.match(/\{[\s\S]*\}/);
+        if (match) {
+          try { return JSON.parse(match[0]); } catch(e2) {
+            Logger.log('Gemini JSON parse failed: ' + e2.message);
+          }
+        }
         return { text: text };
       }
     }
+
+    Logger.log('Gemini no candidates in response: ' + responseText.substring(0, 300));
     return null;
   } catch(err) {
     Logger.log('Gemini error: ' + err.message);
@@ -208,17 +239,44 @@ function callGeminiAI(prompt, fileData) {
 
 // ===== PROCESAR ARCHIVO SUBIDO =====
 function processUploadedFile(fileBase64, fileName, mimeType, gameType) {
-  const prompt = buildFilePrompt(gameType, fileName);
-  const geminiResult = callGeminiAI(prompt, { base64: fileBase64, mimeType: mimeType });
-  
-  if (geminiResult && (geminiResult.pairs || geminiResult.questions || geminiResult.categories || geminiResult.scenario)) {
-    // Save to CONTENIDO sheet
-    saveGeneratedContent(gameType, geminiResult, fileName);
-    return { success: true, data: geminiResult, source: 'gemini' };
+  // Validate inputs
+  if (!fileBase64) {
+    return { success: false, error: 'No se recibió el archivo. Intenta subirlo de nuevo.' };
   }
-  
+  if (!gameType) {
+    return { success: false, error: 'No se seleccionó tipo de juego.' };
+  }
+
+  // Fix mimeType for common extensions if missing
+  if (!mimeType || mimeType === 'application/octet-stream') {
+    var ext = (fileName || '').split('.').pop().toLowerCase();
+    var mimeMap = { pdf:'application/pdf', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', txt:'text/plain' };
+    mimeType = mimeMap[ext] || 'application/octet-stream';
+  }
+
+  var prompt = buildFilePrompt(gameType, fileName);
+
+  // Try Gemini AI
+  var geminiResult = callGeminiAI(prompt, { base64: fileBase64, mimeType: mimeType });
+
+  // Validate response based on game type
+  if (geminiResult) {
+    var isValid = false;
+    if (gameType === 'quiz' && geminiResult.questions && geminiResult.questions.length > 0) isValid = true;
+    if ((gameType === 'mahjong' || gameType === 'memoria') && geminiResult.pairs && geminiResult.pairs.length > 0) isValid = true;
+    if (gameType === 'dragdrop' && geminiResult.categories && geminiResult.items) isValid = true;
+    if (gameType === 'simulacion' && geminiResult.scenario && geminiResult.hazards) isValid = true;
+
+    if (isValid) {
+      saveGeneratedContent(gameType, geminiResult, fileName);
+      return { success: true, data: geminiResult, source: 'gemini' };
+    }
+    // Gemini returned something but not in the expected format
+    Logger.log('Gemini response invalid format for ' + gameType + ': ' + JSON.stringify(geminiResult).substring(0, 500));
+  }
+
   // Fallback to simulation
-  const simulated = simulateAIResponse(gameType, {});
+  var simulated = simulateAIResponse(gameType, {});
   saveGeneratedContent(gameType, simulated, 'Simulado - ' + fileName);
   return { success: true, data: simulated, source: 'simulado' };
 }
