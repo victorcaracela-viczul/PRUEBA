@@ -354,7 +354,8 @@ function generateContent() {
       compressAndSend();
       return;
     }
-    alert('⚠️ El archivo es muy grande para procesar (' + (base64Size / 1024 / 1024).toFixed(1) + ' MB en base64).\n\nGoogle Apps Script tiene un límite de ~256KB por llamada.\n\nSolución: usa una imagen más pequeña o un PDF corto.');
+    // For PDFs and other non-image files, use chunked upload
+    sendChunked(selectedFileBase64, selectedFile.name, selectedFile.type || 'application/octet-stream');
     return;
   }
 
@@ -398,6 +399,104 @@ function compressAndSend() {
   img.src = 'data:' + selectedFile.type + ';base64,' + selectedFileBase64;
 }
 
+function sendChunked(base64Data, fileName, mimeType) {
+  var btn = document.getElementById('btnGenerate');
+  var proc = document.getElementById('processing');
+  var result = document.getElementById('resultCard');
+
+  btn.disabled = true;
+  proc.classList.add('show');
+  result.classList.remove('show');
+  result.classList.remove('error');
+
+  var CHUNK_SIZE = 180000; // ~180KB per chunk (safe under 256KB with JSON overhead)
+  var uploadId = Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+  var chunks = [];
+  for (var i = 0; i < base64Data.length; i += CHUNK_SIZE) {
+    chunks.push(base64Data.substring(i, i + CHUNK_SIZE));
+  }
+  var totalChunks = chunks.length;
+  var sentChunks = 0;
+
+  document.querySelector('.processing .proc-text').textContent = 'Subiendo archivo en partes...';
+  document.querySelector('.processing .proc-sub').textContent = 'Parte 1 de ' + totalChunks + ' (' + (base64Data.length / 1024).toFixed(0) + ' KB total)';
+
+  function sendNextChunk(index) {
+    if (index >= totalChunks) {
+      // All chunks sent, now process
+      document.querySelector('.processing .proc-text').textContent = 'Gemini AI procesando tu archivo...';
+      document.querySelector('.processing .proc-sub').textContent = 'Archivo completo enviado. Esperando respuesta de IA...';
+
+      google.script.run
+        .withSuccessHandler(function(r) {
+          btn.disabled = false;
+          proc.classList.remove('show');
+          handleServerResponse(r, fileName, result);
+        })
+        .withFailureHandler(function(err) {
+          btn.disabled = false;
+          proc.classList.remove('show');
+          showServerError(err, base64Data.length, result);
+        })
+        .processChunkedFile(uploadId, totalChunks, fileName, mimeType, selectedGame);
+      return;
+    }
+
+    document.querySelector('.processing .proc-sub').textContent = 'Parte ' + (index + 1) + ' de ' + totalChunks;
+
+    google.script.run
+      .withSuccessHandler(function() {
+        sendNextChunk(index + 1);
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled = false;
+        proc.classList.remove('show');
+        result.classList.add('show');
+        result.classList.add('error');
+        document.getElementById('resultTitle').textContent = '❌ Error subiendo archivo';
+        document.getElementById('resultMsg').textContent = 'Falló al enviar parte ' + (index + 1) + ' de ' + totalChunks + ': ' + (err ? err.message || String(err) : 'desconocido');
+        document.getElementById('previewData').textContent = '';
+      })
+      .uploadFileChunk(uploadId, index, chunks[index]);
+  }
+
+  sendNextChunk(0);
+}
+
+function handleServerResponse(r, fileName, result) {
+  result.classList.add('show');
+  if (r && r.success) {
+    if (r.source === 'gemini') {
+      document.getElementById('resultTitle').textContent = '✅ ¡Contenido generado por Gemini AI!';
+      document.getElementById('resultMsg').textContent =
+        'Gemini analizó "' + fileName + '" y generó contenido personalizado. Ya está guardado y disponible en el juego.';
+      document.getElementById('previewData').textContent = JSON.stringify(r.data, null, 2).substring(0, 1200);
+    } else {
+      result.classList.add('error');
+      var errorMsg = r.geminiError || 'Error desconocido';
+      document.getElementById('resultTitle').textContent = '❌ Gemini no pudo procesar el archivo';
+      document.getElementById('resultMsg').textContent = 'Error de Gemini: ' + errorMsg;
+      document.getElementById('previewData').textContent =
+        'Se guardó contenido genérico como respaldo.\n\nPara diagnosticar:\n1. Ve a "Configuración IA" y haz clic en "Probar Conexión"\n2. Verifica que tu API Key esté activa en aistudio.google.com\n3. Intenta con otro archivo (imagen JPG/PNG o PDF pequeño)';
+    }
+  } else {
+    result.classList.add('error');
+    document.getElementById('resultTitle').textContent = '❌ Error';
+    document.getElementById('resultMsg').textContent = (r && r.error) ? r.error : 'Error desconocido';
+    document.getElementById('previewData').textContent = '';
+  }
+}
+
+function showServerError(err, dataSize, result) {
+  result.classList.add('show');
+  result.classList.add('error');
+  var errMsg = err ? (err.message || String(err)) : 'desconocido';
+  document.getElementById('resultTitle').textContent = '❌ Error de conexión';
+  document.getElementById('resultMsg').textContent = 'La llamada al servidor falló: ' + errMsg;
+  document.getElementById('previewData').textContent =
+    'Posibles causas:\n- Error de red\n- Web App no desplegada correctamente\n\nTamaño enviado: ' + (dataSize / 1024).toFixed(0) + ' KB';
+}
+
 function sendToServer(base64Data, fileName, mimeType) {
   var btn = document.getElementById('btnGenerate');
   var proc = document.getElementById('processing');
@@ -415,39 +514,12 @@ function sendToServer(base64Data, fileName, mimeType) {
       .withSuccessHandler(function(r) {
         btn.disabled = false;
         proc.classList.remove('show');
-        result.classList.add('show');
-
-        if (r && r.success) {
-          if (r.source === 'gemini') {
-            document.getElementById('resultTitle').textContent = '✅ ¡Contenido generado por Gemini AI!';
-            document.getElementById('resultMsg').textContent =
-              'Gemini analizó "' + fileName + '" y generó contenido personalizado. Ya está guardado y disponible en el juego.';
-            document.getElementById('previewData').textContent = JSON.stringify(r.data, null, 2).substring(0, 1200);
-          } else {
-            result.classList.add('error');
-            var errorMsg = r.geminiError || 'Error desconocido';
-            document.getElementById('resultTitle').textContent = '❌ Gemini no pudo procesar el archivo';
-            document.getElementById('resultMsg').textContent = 'Error de Gemini: ' + errorMsg;
-            document.getElementById('previewData').textContent =
-              'Se guardó contenido genérico como respaldo.\n\nPara diagnosticar:\n1. Ve a "Configuración IA" y haz clic en "Probar Conexión"\n2. Verifica que tu API Key esté activa en aistudio.google.com\n3. Intenta con otro archivo (imagen JPG/PNG o PDF pequeño)';
-          }
-        } else {
-          result.classList.add('error');
-          document.getElementById('resultTitle').textContent = '❌ Error';
-          document.getElementById('resultMsg').textContent = (r && r.error) ? r.error : 'Error desconocido';
-          document.getElementById('previewData').textContent = '';
-        }
+        handleServerResponse(r, fileName, result);
       })
       .withFailureHandler(function(err) {
         btn.disabled = false;
         proc.classList.remove('show');
-        result.classList.add('show');
-        result.classList.add('error');
-        var errMsg = err ? (err.message || String(err)) : 'desconocido';
-        document.getElementById('resultTitle').textContent = '❌ Error de conexión';
-        document.getElementById('resultMsg').textContent = 'La llamada al servidor falló: ' + errMsg;
-        document.getElementById('previewData').textContent =
-          'Posibles causas:\n- Archivo demasiado grande (máx ~200KB en base64)\n- Error de red\n- Web App no desplegada correctamente\n\nTamaño enviado: ' + (base64Data.length / 1024).toFixed(0) + ' KB';
+        showServerError(err, base64Data.length, result);
       })
       .processUploadedFile(base64Data, fileName, mimeType, selectedGame);
   } catch(e) {

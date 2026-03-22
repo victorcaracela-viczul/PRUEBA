@@ -263,6 +263,41 @@ function testGeminiConnection() {
   return { success: false, message: result.error || 'Sin respuesta de Gemini.' };
 }
 
+// ===== UPLOAD CHUNKED PARA ARCHIVOS GRANDES =====
+function uploadFileChunk(uploadId, chunkIndex, chunkData) {
+  var cache = CacheService.getScriptCache();
+  cache.put('upload_' + uploadId + '_chunk_' + chunkIndex, chunkData, 600); // 10 min expiry
+  return { success: true, chunkIndex: chunkIndex };
+}
+
+function processChunkedFile(uploadId, totalChunks, fileName, mimeType, gameType) {
+  var cache = CacheService.getScriptCache();
+  var fullBase64 = '';
+
+  // Retrieve all chunks in batches (getAll supports up to 100 keys)
+  var keys = [];
+  for (var i = 0; i < totalChunks; i++) {
+    keys.push('upload_' + uploadId + '_chunk_' + i);
+  }
+
+  var allChunks = cache.getAll(keys);
+
+  for (var i = 0; i < totalChunks; i++) {
+    var key = 'upload_' + uploadId + '_chunk_' + i;
+    var chunk = allChunks[key];
+    if (!chunk) {
+      return { success: false, error: 'Fragmento ' + i + ' de ' + totalChunks + ' se perdió. Intenta subir el archivo de nuevo.' };
+    }
+    fullBase64 += chunk;
+  }
+
+  // Clean up cache
+  cache.removeAll(keys);
+
+  // Process the reassembled file
+  return processUploadedFile(fullBase64, fileName, mimeType, gameType);
+}
+
 // ===== PROCESAR ARCHIVO SUBIDO =====
 function processUploadedFile(fileBase64, fileName, mimeType, gameType) {
   // Validate inputs
