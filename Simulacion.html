@@ -160,7 +160,21 @@ async function startGame(){
   document.getElementById('fc').textContent='0';document.getElementById('tc').textContent=hazards.length;
   document.getElementById('scTitle').textContent=scenario.title;
   document.getElementById('scDesc').textContent=scenario.description;
-  document.getElementById('sceneBg').className='scene-bg '+scenario.environment;
+  var sceneBg=document.getElementById('sceneBg');
+  if(scenario.imageUrl){
+    sceneBg.className='scene-bg';
+    sceneBg.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;background:none';
+    var img=document.createElement('img');
+    img.src=scenario.imageUrl;
+    img.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center';
+    img.alt='Escena de inspección';
+    sceneBg.innerHTML='';
+    sceneBg.appendChild(img);
+  } else {
+    sceneBg.innerHTML='';
+    sceneBg.className='scene-bg '+scenario.environment;
+    sceneBg.style.cssText='';
+  }
 
   renderScene();renderList();
   setTimeout(()=>{document.getElementById('loadingScreen').classList.add('hidden');startCountdown()},300);
@@ -169,7 +183,7 @@ async function startGame(){
 function renderScene(){
   const a=document.getElementById('inspArea');
   a.querySelectorAll('.hazard-zone,.scene-el').forEach(e=>e.remove());
-  drawEnv(scenario.environment);
+  if(!scenario.imageUrl) drawEnv(scenario.environment);
   hazards.forEach(h=>{
     const z=document.createElement('div');z.className='hazard-zone';z.id='hz-'+h.id;
     z.style.cssText=`left:${h.x}%;top:${h.y}%;width:${h.width}%;height:${h.height}%`;

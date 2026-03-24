@@ -995,15 +995,16 @@ function saveSimulacionToManualSheet_(data, replaceExisting) {
   var sh = ss.getSheetByName('Simulacion_Manual');
   if (!sh) return { success: false, error: 'No se encontró la hoja Simulacion_Manual.' };
   if (replaceExisting && sh.getLastRow() > 1) {
-    sh.getRange(2, 1, sh.getLastRow() - 1, 12).clearContent();
+    sh.getRange(2, 1, sh.getLastRow() - 1, 13).clearContent();
   }
   var escId = 'ESC' + (new Date()).getTime().toString().slice(-4);
+  var imageUrl = data.scenario.imageUrl || '';
   var rows = (data.hazards || []).map(function(h) {
     return [escId, data.scenario.title, data.scenario.description, data.scenario.environment,
-            h.name, h.description, h.severity, h.x, h.y, h.width, h.height, h.solution];
+            h.name, h.description, h.severity, h.x, h.y, h.width, h.height, h.solution, imageUrl];
   });
   if (!rows.length) return { success: false, error: 'La IA no devolvió peligros válidos.' };
-  sh.getRange(sh.getLastRow() + 1, 1, rows.length, 12).setValues(rows);
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, 13).setValues(rows);
   return { success: true, added: rows.length, message: rows.length + ' peligro(s) guardados en Simulacion_Manual.' };
 }
 
@@ -1016,9 +1017,12 @@ function generateManualSimulacionWithAI(hazards, textBase, fileBase64, fileName,
     if (!aiResult.data || !aiResult.data.scenario || !aiResult.data.hazards) return { success: false, error: aiResult.error || 'La IA no devolvió el formato esperado.' };
     var normalized = normalizeSimulacionData_(aiResult.data);
     if (!normalized.hazards.length) return { success: false, error: 'La IA respondió, pero no con peligros utilizables.' };
+    // Generate scene image with Imagen 3
+    var imageResult = generateSceneImage_(normalized.scenario.title, normalized.scenario.description, normalized.scenario.environment);
+    if (imageResult.url) normalized.scenario.imageUrl = imageResult.url;
     var saveResult = saveSimulacionToManualSheet_(normalized, !!replaceExisting);
     if (!saveResult.success) return saveResult;
-    return { success: true, added: saveResult.added, message: saveResult.message };
+    return { success: true, added: saveResult.added, message: saveResult.message, imageUrl: normalized.scenario.imageUrl || null };
   } catch(e) { return { success: false, error: e.message }; }
 }
 
@@ -1026,6 +1030,53 @@ function generateManualSimulacionWithAIChunked(uploadId, totalChunks, fileName, 
   var assembled = reassembleChunkedUpload_(uploadId, totalChunks);
   if (!assembled.success) return assembled;
   return generateManualSimulacionWithAI(hazards, textBase, assembled.base64, fileName, mimeType, replaceExisting);
+}
+
+// ===== IMAGEN GENERADA POR IA PARA SIMULACION =====
+function generateSceneImage_(title, description, environment) {
+  try {
+    var apiKey = CONFIG.GEMINI_API_KEY;
+    if (!apiKey || apiKey === 'TU_GEMINI_API_KEY_AQUI') return { url: null, error: 'API Key no configurada.' };
+
+    var envNames = { construccion: 'construction site', taller: 'industrial workshop', almacen: 'warehouse storage facility' };
+    var envLabel = envNames[environment] || environment || 'industrial workplace';
+    var imagePrompt = 'Workplace safety inspection scene: ' + envLabel + '. ' + title + '. ' + description +
+      ' Realistic, detailed, wide-angle view showing the full work area. Safety hazards visible. Photorealistic style.';
+
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=' + apiKey;
+    var payload = JSON.stringify({
+      instances: [{ prompt: imagePrompt }],
+      parameters: { sampleCount: 1, aspectRatio: '16:9' }
+    });
+    var response = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: payload,
+      muteHttpExceptions: true
+    });
+    var code = response.getResponseCode();
+    if (code !== 200) {
+      Logger.log('Imagen API error ' + code + ': ' + response.getContentText());
+      return { url: null, error: 'Imagen API error ' + code };
+    }
+    var result = JSON.parse(response.getContentText());
+    var b64 = result.predictions && result.predictions[0] && result.predictions[0].bytesBase64Encoded;
+    if (!b64) return { url: null, error: 'La API no devolvió imagen.' };
+
+    // Save PNG to Drive folder
+    var folderId = '1eSJvUfrb5tQqON-KW08DjsGii1-XSKmp';
+    var folder = DriveApp.getFolderById(folderId);
+    var fileName = 'simulacion_' + (new Date()).getTime() + '.png';
+    var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/png', fileName);
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var fileId = file.getId();
+    var publicUrl = 'https://drive.google.com/uc?export=view&id=' + fileId;
+    return { url: publicUrl, fileId: fileId };
+  } catch(e) {
+    Logger.log('generateSceneImage_ error: ' + e.message);
+    return { url: null, error: e.message };
+  }
 }
 
 // ===== PROCESAR ARCHIVO SUBIDO =====
@@ -1658,7 +1709,8 @@ function leerDatosManualSimulacion() {
           scenario: {
             title: String(data[i][1]).trim(),
             description: String(data[i][2]).trim(),
-            environment: String(data[i][3]).trim()
+            environment: String(data[i][3]).trim(),
+            imageUrl: data[i][12] ? String(data[i][12]).trim() : ''
           },
           hazards: []
         };
