@@ -567,9 +567,9 @@ function generateContent() {
     return;
   }
 
-  // Check file size - google.script.run limit is ~256KB for parameters
+  // Check file size - CacheService limit is 100KB per entry, chunk if file is large
   var base64Size = selectedFileBase64.length;
-  if (base64Size > 200000) {
+  if (base64Size > 80000) {
     // Try to compress if it's an image
     if (selectedFile.type.startsWith('image/')) {
       compressAndSend();
@@ -602,7 +602,7 @@ function compressAndSend() {
     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
     var compressed = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
 
-    if (compressed.length > 200000) {
+    if (compressed.length > 80000) {
       // Still too large, compress more
       canvas.width = Math.round(w * 0.6);
       canvas.height = Math.round(h * 0.6);
@@ -630,7 +630,7 @@ function sendChunked(base64Data, fileName, mimeType) {
   result.classList.remove('show');
   result.classList.remove('error');
 
-  var CHUNK_SIZE = 180000; // ~180KB per chunk (safe under 256KB with JSON overhead)
+  var CHUNK_SIZE = 80000; // CacheService limit is 100KB per entry; keep well under it
   var uploadId = Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
   var chunks = [];
   for (var i = 0; i < base64Data.length; i += CHUNK_SIZE) {
@@ -1074,8 +1074,8 @@ function generateManualQuizAI() {
         return;
       }
 
-      if (manualQuizFileBase64.length > 200000) {
-        const CHUNK_SIZE = 180000;
+      if (manualQuizFileBase64.length > 80000) {
+        const CHUNK_SIZE = 80000; // CacheService limit is 100KB per entry, keep well under it
         const uploadId = Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
         const chunks = [];
         for (let i = 0; i < manualQuizFileBase64.length; i += CHUNK_SIZE) {
