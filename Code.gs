@@ -162,7 +162,7 @@ function saveConfigFromAdmin(apiKey, sheetId, openaiKey, aiProvider) {
     var hasGemini = CONFIG.GEMINI_API_KEY && CONFIG.GEMINI_API_KEY !== 'TU_GEMINI_API_KEY_AQUI';
     if (hasGemini) {
       try {
-        var testUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + CONFIG.GEMINI_API_KEY;
+        var testUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + CONFIG.GEMINI_API_KEY;
         var testPayload = { contents: [{ parts: [{ text: 'Responde solo: {"ok":true}' }] }], generationConfig: { maxOutputTokens: 20 } };
         var resp = UrlFetchApp.fetch(testUrl, { method: 'post', contentType: 'application/json', payload: JSON.stringify(testPayload), muteHttpExceptions: true });
         var code = resp.getResponseCode();
@@ -233,12 +233,12 @@ function getConfigStatus() {
 
 // callGeminiAI now returns { data: ..., error: ... } instead of just data or null
 function callGeminiAI(prompt, fileData) {
-  if (!CONFIG.USE_REAL_API || CONFIG.GEMINI_API_KEY === 'TU_GEMINI_API_KEY_AQUI') {
-    return { data: null, error: 'IA no activada. USE_REAL_API=' + CONFIG.USE_REAL_API + '. Configura tu API Key en la pestaña Configuración.' };
+  if (!CONFIG.GEMINI_API_KEY || CONFIG.GEMINI_API_KEY === 'TU_GEMINI_API_KEY_AQUI') {
+    return { data: null, error: 'API Key de Gemini no configurada. Ve a la pestaña Configuración.' };
   }
   try {
-    // Try multiple model names in case one isn't available
-    var models = ['gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    // Try current models first; gemini-1.5-flash is deprecated in v1beta
+    var models = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.0-flash-001'];
     var lastError = '';
 
     for (var m = 0; m < models.length; m++) {
