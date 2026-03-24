@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SST GameHub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --orange: #ff6b35; --orange-light: #fff3ed; --orange-glow: #ff8c5a;
+  --blue: #1e88e5; --blue-light: #e3f2fd;
+  --green: #43a047; --green-light: #e8f5e9;
+  --red: #e53935; --red-light: #ffebee;
+  --purple: #7c4dff; --purple-light: #ede7f6;
+  --yellow: #ffb300; --yellow-light: #fff8e1;
+  --bg: #faf7f4; --bg-card: #ffffff;
+  --text: #2d3436; --text-light: #636e72; --text-lighter: #b2bec3;
+  --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --shadow-hover: 0 8px 30px rgba(0,0,0,0.1);
+  --radius: 20px; --radius-sm: 12px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Nunito',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+/* Warm background pattern */
+body::before {
+  content:''; position:fixed; top:0; left:0; width:100%; height:100%;
+  background: radial-gradient(ellipse at 0% 0%, rgba(255,107,53,0.06) 0%, transparent 50%),
+              radial-gradient(ellipse at 100% 100%, rgba(30,136,229,0.04) 0%, transparent 50%);
+  z-index:0; pointer-events:none;
+}
+
+.container { position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:20px; }
+
+/* ===== LOGIN ===== */
+#loginScreen {
+  display:flex; align-items:center; justify-content:center; min-height:100vh;
+}
+.login-box {
+  background:var(--bg-card); border-radius:28px; padding:45px 40px;
+  width:100%; max-width:420px;
+  box-shadow: 0 4px 40px rgba(0,0,0,0.08);
+  animation: popIn 0.6s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes popIn { from { opacity:0; transform:translateY(30px) scale(0.95); } }
+
+.login-box .logo { text-align:center; margin-bottom:30px; }
+.login-box .logo .icon-wrap {
+  width:80px; height:80px; margin:0 auto 12px;
+  background:linear-gradient(135deg, var(--orange), var(--yellow));
+  border-radius:24px; display:flex; align-items:center; justify-content:center;
+  font-size:38px; box-shadow:0 6px 20px rgba(255,107,53,0.3);
+  transform:rotate(-5deg); transition:transform 0.3s;
+}
+.login-box .logo .icon-wrap:hover { transform:rotate(0deg) scale(1.05); }
+.login-box .logo h1 {
+  font-family:'Fredoka',sans-serif; font-size:26px; font-weight:700;
+  color:var(--orange);
+}
+.login-box .logo p { color:var(--text-light); font-size:14px; margin-top:3px; }
+
+.field { margin-bottom:18px; }
+.field label {
+  display:block; font-size:13px; font-weight:700; color:var(--text-light);
+  margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;
+}
+.field input {
+  width:100%; padding:14px 16px; font-size:18px; font-weight:700;
+  font-family:'Nunito'; background:#f8f9fa; border:2px solid #e9ecef;
+  border-radius:var(--radius-sm); color:var(--text); outline:none;
+  letter-spacing:2px; transition:all 0.3s;
+}
+.field input:focus { border-color:var(--orange); background:#fff; box-shadow:0 0 0 4px rgba(255,107,53,0.1); }
+.field input::placeholder { color:var(--text-lighter); letter-spacing:normal; font-weight:400; }
+
+.btn-login {
+  width:100%; padding:15px; font-size:16px; font-family:'Fredoka';
+  font-weight:700; background:linear-gradient(135deg, var(--orange), var(--orange-glow));
+  border:none; border-radius:var(--radius-sm); color:#fff;
+  cursor:pointer; letter-spacing:0.5px; transition:all 0.3s;
+  box-shadow:0 4px 15px rgba(255,107,53,0.3);
+  position:relative; overflow:hidden;
+}
+.btn-login:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(255,107,53,0.4); }
+.btn-login:active { transform:translateY(0); }
+.btn-login:disabled { opacity:0.6; cursor:wait; }
+.btn-login .spinner {
+  display:none; width:22px; height:22px; border:3px solid rgba(255,255,255,0.3);
+  border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; margin:0 auto;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.login-error {
+  background:var(--red-light); border:1px solid rgba(229,57,53,0.2);
+  border-radius:var(--radius-sm); padding:12px 16px;
+  color:var(--red); font-size:14px; font-weight:600;
+  margin-bottom:14px; display:none; animation:shake 0.4s ease;
+}
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+.login-box .admin-link {
+  text-align:center; margin-top:18px;
+}
+.login-box .admin-link a {
+  color:var(--blue); text-decoration:none; font-size:13px; font-weight:700;
+  opacity:0.7; transition:opacity 0.3s;
+}
+.login-box .admin-link a:hover { opacity:1; }
+
+/* ===== DASHBOARD ===== */
+#dashboard { display:none; }
+
+.topnav {
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--bg-card); border-radius:var(--radius);
+  padding:14px 22px; margin-bottom:24px;
+  box-shadow:var(--shadow);
+}
+.topnav-left { display:flex; align-items:center; gap:12px; }
+.topnav-left .brand {
+  width:40px; height:40px; background:linear-gradient(135deg,var(--orange),var(--yellow));
+  border-radius:12px; display:flex; align-items:center; justify-content:center;
+  font-size:20px; transform:rotate(-3deg);
+}
+.topnav-left h2 { font-family:'Fredoka'; font-size:20px; color:var(--orange); }
+.topnav-right { display:flex; align-items:center; gap:12px; }
+.user-chip {
+  display:flex; align-items:center; gap:8px;
+  background:#f8f9fa; border-radius:25px; padding:6px 14px 6px 6px;
+}
+.user-chip .avatar {
+  width:32px; height:32px; border-radius:50%;
+  background:linear-gradient(135deg,var(--green),#66bb6a);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-weight:800; font-size:12px;
+}
+.user-chip .uname { font-weight:700; font-size:14px; }
+
+.btn-admin {
+  background:var(--purple-light); border:none; border-radius:10px;
+  padding:8px 14px; color:var(--purple); font-family:'Nunito';
+  font-weight:700; font-size:13px; cursor:pointer; transition:all 0.3s;
+}
+.btn-admin:hover { background:var(--purple); color:#fff; }
+
+.btn-logout {
+  background:var(--red-light); border:none; border-radius:10px;
+  padding:8px 14px; color:var(--red); font-family:'Nunito';
+  font-weight:700; font-size:13px; cursor:pointer; transition:all 0.3s;
+}
+.btn-logout:hover { background:var(--red); color:#fff; }
+
+/* Welcome */
+.welcome-card {
+  background:linear-gradient(135deg, var(--orange), #ff9a76);
+  border-radius:var(--radius); padding:28px 30px;
+  color:#fff; margin-bottom:24px; position:relative; overflow:hidden;
+}
+.welcome-card::after {
+  content:'🛡️'; position:absolute; right:20px; top:50%; transform:translateY(-50%);
+  font-size:70px; opacity:0.2;
+}
+.welcome-card h3 { font-family:'Fredoka'; font-size:24px; margin-bottom:6px; }
+.welcome-card p { opacity:0.9; font-size:15px; max-width:500px; line-height:1.5; }
+
+/* Stats */
+.stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px; }
+.stat-card {
+  background:var(--bg-card); border-radius:var(--radius); padding:18px 16px;
+  text-align:center; box-shadow:var(--shadow); transition:all 0.3s;
+}
+.stat-card:hover { transform:translateY(-3px); box-shadow:var(--shadow-hover); }
+.stat-card .stat-icon { font-size:28px; margin-bottom:6px; }
+.stat-card .stat-num { font-family:'Fredoka'; font-size:28px; font-weight:700; }
+.stat-card .stat-lbl { font-size:11px; color:var(--text-light); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+.stat-card:nth-child(1) .stat-num { color:var(--blue); }
+.stat-card:nth-child(2) .stat-num { color:var(--green); }
+.stat-card:nth-child(3) .stat-num { color:var(--yellow); }
+.stat-card:nth-child(4) .stat-num { color:var(--purple); }
+
+/* Section */
+.section-head {
+  font-family:'Fredoka'; font-size:20px; margin-bottom:16px;
+  display:flex; align-items:center; gap:8px;
+}
+.section-head::before {
+  content:''; width:5px; height:24px;
+  background:linear-gradient(var(--orange),var(--yellow));
+  border-radius:3px;
+}
+
+/* Game Cards */
+.games-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:18px; }
+
+.game-card {
+  background:var(--bg-card); border-radius:var(--radius); overflow:hidden;
+  box-shadow:var(--shadow); transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  cursor:pointer; border:2px solid transparent;
+}
+.game-card:hover {
+  transform:translateY(-6px); box-shadow:var(--shadow-hover);
+  border-color:var(--orange);
+}
+.game-card .banner {
+  height:110px; display:flex; align-items:center; justify-content:center;
+  font-size:50px; position:relative;
+}
+.game-card:nth-child(1) .banner { background:linear-gradient(135deg,#fff3e0,#ffe0b2); }
+.game-card:nth-child(2) .banner { background:linear-gradient(135deg,#e3f2fd,#bbdefb); }
+.game-card:nth-child(3) .banner { background:linear-gradient(135deg,#e8f5e9,#c8e6c9); }
+.game-card:nth-child(4) .banner { background:linear-gradient(135deg,#f3e5f5,#e1bee7); }
+.game-card:nth-child(5) .banner { background:linear-gradient(135deg,#ffebee,#ffcdd2); }
+
+.game-card .body { padding:18px 20px; }
+.game-card .body h3 { font-family:'Fredoka'; font-size:17px; margin-bottom:5px; }
+.game-card .body p { font-size:13px; color:var(--text-light); line-height:1.4; margin-bottom:14px; }
+
+.game-card .tags { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+.game-card .tags span {
+  background:#f1f3f5; border-radius:20px; padding:3px 10px;
+  font-size:11px; font-weight:700; color:var(--text-light);
+}
+
+.game-card .card-foot { display:flex; align-items:center; justify-content:space-between; }
+.difficulty { display:flex; gap:3px; }
+.difficulty span { width:8px; height:8px; border-radius:50%; background:#e9ecef; }
+.difficulty span.on { background:var(--orange); }
+
+.btn-play {
+  background:linear-gradient(135deg,var(--orange),var(--orange-glow));
+  border:none; border-radius:10px; padding:9px 20px;
+  color:#fff; font-family:'Fredoka'; font-size:13px; font-weight:600;
+  cursor:pointer; transition:all 0.3s;
+  box-shadow:0 3px 10px rgba(255,107,53,0.25);
+}
+.btn-play:hover { box-shadow:0 5px 15px rgba(255,107,53,0.35); transform:scale(1.05); }
+
+/* Loading */
+.loading-overlay {
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(250,247,244,0.9); z-index:999;
+  display:none; align-items:center; justify-content:center; flex-direction:column; gap:16px;
+  backdrop-filter:blur(8px);
+}
+.loading-overlay.show { display:flex; }
+.loading-overlay .ld-spinner {
+  width:50px; height:50px; border:4px solid #e9ecef;
+  border-top-color:var(--orange); border-radius:50%; animation:spin 0.8s linear infinite;
+}
+.loading-overlay .ld-text {
+  font-family:'Fredoka'; font-size:16px; color:var(--orange);
+}
+
+@media(max-width:768px) {
+  .topnav { flex-direction:column; gap:12px; text-align:center; }
+  .topnav-right { flex-wrap:wrap; justify-content:center; }
+  .stats-row { grid-template-columns:repeat(2,1fr); }
+  .games-grid { grid-template-columns:1fr; }
+  .login-box { margin:15px; padding:30px 25px; }
+  .welcome-card::after { display:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="ld-spinner"></div>
+  <div class="ld-text">Cargando juego...</div>
+</div>
+
+<div class="container">
+  <!-- LOGIN -->
+  <div id="loginScreen">
+    <div class="login-box">
+      <div class="logo">
+        <div class="icon-wrap">🛡️</div>
+        <h1>SST GameHub</h1>
+        <p>Capacitación en Seguridad que Divierte</p>
+      </div>
+      <div class="login-error" id="loginError"></div>
+      <div class="field">
+        <label>Tu número de DNI</label>
+        <input type="text" id="dniInput" placeholder="Ej: 12345678" maxlength="15"
+               autocomplete="off" onkeypress="if(event.key==='Enter')handleLogin()">
+      </div>
+      <button class="btn-login" id="btnLogin" onclick="handleLogin()">
+        <span class="btn-text">Ingresar 🚀</span>
+        <div class="spinner"></div>
+      </button>
+      <div class="admin-link">
+        <a href="#" onclick="openAdmin(); return false;">⚙️ Centro de Mando (Admin)</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard">
+    <nav class="topnav">
+      <div class="topnav-left">
+        <div class="brand">🛡️</div>
+        <h2>SST GameHub</h2>
+      </div>
+      <div class="topnav-right">
+        <div class="user-chip">
+          <div class="avatar" id="userAvatar">JD</div>
+          <span class="uname" id="userName">Juan</span>
+        </div>
+        <button class="btn-admin" onclick="openAdmin()">⚙️ Centro de Mando</button>
+        <button class="btn-logout" onclick="handleLogout()">Salir ✕</button>
+      </div>
+    </nav>
+
+    <div class="welcome-card">
+      <h3 id="welcomeMsg">¡Hola, Juan! 👋</h3>
+      <p>Aprende sobre Seguridad y Salud en el Trabajo de forma divertida. Cada juego usa Inteligencia Artificial para crear contenido personalizado.</p>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon">🎮</div>
+        <div class="stat-num" id="statGames">0</div>
+        <div class="stat-lbl">Juegos jugados</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🏆</div>
+        <div class="stat-num" id="statBest">0</div>
+        <div class="stat-lbl">Mejor puntaje</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🔥</div>
+        <div class="stat-num" id="statStreak">0</div>
+        <div class="stat-lbl">Racha</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">⭐</div>
+        <div class="stat-num" id="statLevel">1</div>
+        <div class="stat-lbl">Nivel</div>
+      </div>
+    </div>
+
+    <div class="section-head">Elige tu Juego</div>
+
+    <div class="games-grid">
+      <div class="game-card" onclick="launchGame('Mahjong')">
+        <div class="banner">🀄</div>
+        <div class="body">
+          <h3>Mahjong SST</h3>
+          <p>Empareja conceptos de seguridad con sus definiciones en fichas apiladas. ¡Estrategia y conocimiento!</p>
+          <div class="tags"><span>🤖 IA</span><span>Parejas</span><span>Estrategia</span></div>
+          <div class="card-foot">
+            <div class="difficulty"><span class="on"></span><span class="on"></span><span></span></div>
+            <button class="btn-play" onclick="event.stopPropagation();launchGame('Mahjong')">Jugar ▶</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-card" onclick="launchGame('Memoria')">
+        <div class="banner">🧠</div>
+        <div class="body">
+          <h3>Memoria SST</h3>
+          <p>Encuentra los pares ocultos. Si fallas, la IA te explica el concepto para que aprendas.</p>
+          <div class="tags"><span>🤖 IA</span><span>Memoria</span><span>EPP</span></div>
+          <div class="card-foot">
+            <div class="difficulty"><span class="on"></span><span></span><span></span></div>
+            <button class="btn-play" onclick="event.stopPropagation();launchGame('Memoria')">Jugar ▶</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-card" onclick="launchGame('DragDrop')">
+        <div class="banner">🎯</div>
+        <div class="body">
+          <h3>Arrastra y Clasifica</h3>
+          <p>Clasifica elementos de seguridad arrastrándolos a su categoría correcta.</p>
+          <div class="tags"><span>🤖 IA</span><span>Clasificar</span><span>Riesgos</span></div>
+          <div class="card-foot">
+            <div class="difficulty"><span class="on"></span><span class="on"></span><span></span></div>
+            <button class="btn-play" onclick="event.stopPropagation();launchGame('DragDrop')">Jugar ▶</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-card" onclick="launchGame('Quiz')">
+        <div class="banner">❓</div>
+        <div class="body">
+          <h3>Quiz Interactivo</h3>
+          <p>Responde preguntas sobre normativas, EPP y procedimientos. ¡Contra el reloj!</p>
+          <div class="tags"><span>🤖 IA</span><span>Trivia</span><span>Normas</span></div>
+          <div class="card-foot">
+            <div class="difficulty"><span class="on"></span><span class="on"></span><span class="on"></span></div>
+            <button class="btn-play" onclick="event.stopPropagation();launchGame('Quiz')">Jugar ▶</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-card" onclick="launchGame('Simulacion')">
+        <div class="banner">🏗️</div>
+        <div class="body">
+          <h3>Simulación de Riesgos</h3>
+          <p>Inspecciona escenarios laborales y detecta todos los peligros. ¡Sé el inspector!</p>
+          <div class="tags"><span>🤖 IA</span><span>Inspección</span><span>Escenarios</span></div>
+          <div class="card-foot">
+            <div class="difficulty"><span class="on"></span><span class="on"></span><span class="on"></span></div>
+            <button class="btn-play" onclick="event.stopPropagation();launchGame('Simulacion')">Jugar ▶</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentUser = null;
+let webAppUrl = '';
+
+document.addEventListener('DOMContentLoaded', () => {
+  const saved = sessionStorage.getItem('sst_user');
+  if (saved) { currentUser = JSON.parse(saved); showDashboard(); }
+  try { google.script.run.withSuccessHandler(u => { webAppUrl = u; }).getWebAppUrl(); } catch(e){}
+  document.getElementById('dniInput').focus();
+});
+
+function handleLogin() {
+  const dni = document.getElementById('dniInput').value.trim();
+  const btn = document.getElementById('btnLogin');
+  const err = document.getElementById('loginError');
+  if (!dni) { showLoginError('Ingresa tu número de DNI'); return; }
+  
+  btn.disabled = true;
+  btn.querySelector('.btn-text').style.display = 'none';
+  btn.querySelector('.spinner').style.display = 'block';
+  err.style.display = 'none';
+  
+  try {
+    google.script.run
+      .withSuccessHandler(r => {
+        resetBtn();
+        if (r && r.success) {
+          currentUser = r.user;
+          sessionStorage.setItem('sst_user', JSON.stringify(currentUser));
+          showDashboard();
+        } else {
+          showLoginError((r && r.error) ? r.error : 'Respuesta inválida del servidor');
+        }
+      })
+      .withFailureHandler(() => { resetBtn(); showLoginError('Error de conexión'); })
+      .validateLogin(dni);
+  } catch(e) {
+    resetBtn();
+    currentUser = { dni, nombre:'Usuario', apellido:'Demo' };
+    sessionStorage.setItem('sst_user', JSON.stringify(currentUser));
+    showDashboard();
+  }
+}
+
+function resetBtn() {
+  const btn = document.getElementById('btnLogin');
+  btn.disabled = false;
+  btn.querySelector('.btn-text').style.display = '';
+  btn.querySelector('.spinner').style.display = 'none';
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg; el.style.display = 'block';
+  el.style.animation = 'none'; el.offsetHeight; el.style.animation = 'shake 0.4s';
+}
+
+function showDashboard() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('dashboard').style.animation = 'popIn 0.5s ease';
+  const i = (currentUser.nombre[0]+(currentUser.apellido||'X')[0]).toUpperCase();
+  document.getElementById('userAvatar').textContent = i;
+  document.getElementById('userName').textContent = currentUser.nombre;
+  document.getElementById('welcomeMsg').textContent = '¡Hola, ' + currentUser.nombre + '! 👋';
+  loadStats();
+}
+
+function loadStats() {
+  try {
+    google.script.run.withSuccessHandler(r => {
+      if (r && r.success && Array.isArray(r.scores) && r.scores.length) {
+        document.getElementById('statGames').textContent = r.scores.length;
+        document.getElementById('statBest').textContent = Math.max(...r.scores.map(s => +s.puntaje || 0));
+        document.getElementById('statStreak').textContent = Math.min(r.scores.length, 7);
+        document.getElementById('statLevel').textContent = Math.floor(r.scores.length / 3) + 1;
+      }
+    }).getScoreHistory(currentUser.dni);
+  } catch(e) {}
+}
+
+function launchGame(game) {
+  var ol = document.getElementById('loadingOverlay');
+  ol.classList.add('show');
+  try {
+    if (webAppUrl) {
+      window.top.location.href = webAppUrl + '?page=' + game;
+    } else {
+      google.script.run.withSuccessHandler(function(u) {
+        window.top.location.href = u + '?page=' + game;
+      }).withFailureHandler(function() {
+        window.location.href = game + '.html';
+      }).getWebAppUrl();
+    }
+  } catch(e) { window.location.href = game + '.html'; }
+}
+
+function openAdmin() {
+  try {
+    if (webAppUrl) {
+      window.top.location.href = webAppUrl + '?page=Admin';
+    } else {
+      google.script.run.withSuccessHandler(function(u) {
+        window.top.location.href = u + '?page=Admin';
+      }).withFailureHandler(function() {
+        window.location.href = 'Admin.html';
+      }).getWebAppUrl();
+    }
+  } catch(e) { window.location.href = 'Admin.html'; }
+}
+
+function handleLogout() {
+  currentUser = null; sessionStorage.removeItem('sst_user');
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('dniInput').value = '';
+  document.getElementById('dniInput').focus();
+}
+</script>
+</body>
+</html>
