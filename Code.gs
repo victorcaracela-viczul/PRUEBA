@@ -746,6 +746,288 @@ function generateManualQuizWithAIChunked(uploadId, totalChunks, fileName, mimeTy
   return generateManualQuizWithAI(questionCount, textBase, assembled.base64, fileName, mimeType, replaceExisting);
 }
 
+// ===== MAHJONG AI =====
+function buildManualMahjongPrompt_(count, textBase, fileName) {
+  var n = Math.min(Math.max(parseInt(count) || 12, 4), 20);
+  var prompt = 'INSTRUCCIONES CRITICAS: Responde UNICAMENTE con JSON valido. No uses markdown ni texto adicional. ' +
+    'Genera exactamente ' + n + ' pares de conceptos SST para un juego de Mahjong educativo.' +
+    '\n\nEstructura requerida:' +
+    '\n{"pairs":[{"id":1,"concept":"🔥 Concepto corto","match":"Definicion breve"}]}' +
+    '\n\nReglas:' +
+    '\n- Exactamente ' + n + ' objetos en el array "pairs".' +
+    '\n- "concept" incluye un emoji relevante y maximo 4 palabras.' +
+    '\n- "match" es la definicion en maximo 8 palabras.' +
+    '\n- Contenido basado en el texto o documento recibido.' +
+    '\n- Usa español claro y profesional.';
+  if (textBase) prompt += '\n\nTEXTO BASE:\n' + textBase.substring(0, 15000);
+  if (fileName) prompt += '\n\nArchivo analizado: ' + fileName;
+  return prompt;
+}
+
+function normalizeMahjongPairs_(pairs) {
+  var result = [];
+  for (var i = 0; i < (pairs || []).length; i++) {
+    var p = pairs[i] || {};
+    var concept = String(p.concept || '').trim();
+    var match = String(p.match || '').trim();
+    if (!concept || !match) continue;
+    result.push({ id: result.length + 1, concept: concept, match: match });
+  }
+  return result;
+}
+
+function saveMahjongPairsToManualSheet_(pairs, replaceExisting) {
+  crearHojasManuales();
+  var ss = openSpreadsheet_();
+  var sh = ss.getSheetByName('Mahjong_Manual');
+  if (!sh) return { success: false, error: 'No se encontró la hoja Mahjong_Manual.' };
+  if (replaceExisting && sh.getLastRow() > 1) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 2).clearContent();
+  }
+  var rows = pairs.map(function(p) { return [p.concept, p.match]; });
+  if (!rows.length) return { success: false, error: 'La IA no devolvió pares válidos.' };
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, 2).setValues(rows);
+  return { success: true, added: rows.length, message: rows.length + ' par(es) guardados en Mahjong_Manual.' };
+}
+
+function generateManualMahjongWithAI(count, textBase, fileBase64, fileName, mimeType, replaceExisting) {
+  try {
+    if (!textBase && !fileBase64) return { success: false, error: 'Debes escribir un texto o subir un archivo.' };
+    var prompt = buildManualMahjongPrompt_(count, textBase, fileName);
+    var fileData = fileBase64 ? { base64: fileBase64, mimeType: mimeType || 'application/octet-stream' } : null;
+    var aiResult = callAI(prompt, fileData);
+    if (!aiResult.data || !aiResult.data.pairs) return { success: false, error: aiResult.error || 'La IA no devolvió pares.' };
+    var pairs = normalizeMahjongPairs_(aiResult.data.pairs);
+    if (!pairs.length) return { success: false, error: 'La IA respondió, pero no con pares utilizables.' };
+    var saveResult = saveMahjongPairsToManualSheet_(pairs, !!replaceExisting);
+    if (!saveResult.success) return saveResult;
+    return { success: true, added: saveResult.added, message: saveResult.message };
+  } catch(e) { return { success: false, error: e.message }; }
+}
+
+function generateManualMahjongWithAIChunked(uploadId, totalChunks, fileName, mimeType, count, textBase, replaceExisting) {
+  var assembled = reassembleChunkedUpload_(uploadId, totalChunks);
+  if (!assembled.success) return assembled;
+  return generateManualMahjongWithAI(count, textBase, assembled.base64, fileName, mimeType, replaceExisting);
+}
+
+// ===== MEMORIA AI =====
+function buildManualMemoriaPrompt_(count, textBase, fileName) {
+  var n = Math.min(Math.max(parseInt(count) || 8, 4), 12);
+  var prompt = 'INSTRUCCIONES CRITICAS: Responde UNICAMENTE con JSON valido. No uses markdown ni texto adicional. ' +
+    'Genera exactamente ' + n + ' pares para un juego de memoria educativo sobre SST.' +
+    '\n\nEstructura requerida:' +
+    '\n{"pairs":[{"id":1,"front":"🔥","back":"CONCEPTO EN MAYUSCULAS","explanation":"Explicacion de 1-2 oraciones"}]}' +
+    '\n\nReglas:' +
+    '\n- Exactamente ' + n + ' objetos en el array "pairs".' +
+    '\n- "front" es un solo emoji representativo.' +
+    '\n- "back" es el concepto en MAYUSCULAS (maximo 3 palabras).' +
+    '\n- "explanation" explica el concepto en 1-2 oraciones.' +
+    '\n- Contenido basado en el texto o documento recibido.' +
+    '\n- Usa español claro y profesional.';
+  if (textBase) prompt += '\n\nTEXTO BASE:\n' + textBase.substring(0, 15000);
+  if (fileName) prompt += '\n\nArchivo analizado: ' + fileName;
+  return prompt;
+}
+
+function normalizeMemoriaPairs_(pairs) {
+  var result = [];
+  for (var i = 0; i < (pairs || []).length; i++) {
+    var p = pairs[i] || {};
+    var front = String(p.front || '').trim();
+    var back = String(p.back || '').trim().toUpperCase();
+    if (!front || !back) continue;
+    result.push({ id: result.length + 1, front: front, back: back, explanation: String(p.explanation || '').trim() });
+  }
+  return result;
+}
+
+function saveMemoriaPairsToManualSheet_(pairs, replaceExisting) {
+  crearHojasManuales();
+  var ss = openSpreadsheet_();
+  var sh = ss.getSheetByName('Memoria_Manual');
+  if (!sh) return { success: false, error: 'No se encontró la hoja Memoria_Manual.' };
+  if (replaceExisting && sh.getLastRow() > 1) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 3).clearContent();
+  }
+  var rows = pairs.map(function(p) { return [p.front, p.back, p.explanation]; });
+  if (!rows.length) return { success: false, error: 'La IA no devolvió pares válidos.' };
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, 3).setValues(rows);
+  return { success: true, added: rows.length, message: rows.length + ' par(es) guardados en Memoria_Manual.' };
+}
+
+function generateManualMemoriaWithAI(count, textBase, fileBase64, fileName, mimeType, replaceExisting) {
+  try {
+    if (!textBase && !fileBase64) return { success: false, error: 'Debes escribir un texto o subir un archivo.' };
+    var prompt = buildManualMemoriaPrompt_(count, textBase, fileName);
+    var fileData = fileBase64 ? { base64: fileBase64, mimeType: mimeType || 'application/octet-stream' } : null;
+    var aiResult = callAI(prompt, fileData);
+    if (!aiResult.data || !aiResult.data.pairs) return { success: false, error: aiResult.error || 'La IA no devolvió pares.' };
+    var pairs = normalizeMemoriaPairs_(aiResult.data.pairs);
+    if (!pairs.length) return { success: false, error: 'La IA respondió, pero no con pares utilizables.' };
+    var saveResult = saveMemoriaPairsToManualSheet_(pairs, !!replaceExisting);
+    if (!saveResult.success) return saveResult;
+    return { success: true, added: saveResult.added, message: saveResult.message };
+  } catch(e) { return { success: false, error: e.message }; }
+}
+
+function generateManualMemoriaWithAIChunked(uploadId, totalChunks, fileName, mimeType, count, textBase, replaceExisting) {
+  var assembled = reassembleChunkedUpload_(uploadId, totalChunks);
+  if (!assembled.success) return assembled;
+  return generateManualMemoriaWithAI(count, textBase, assembled.base64, fileName, mimeType, replaceExisting);
+}
+
+// ===== DRAGDROP AI =====
+function buildManualDragDropPrompt_(categories, textBase, fileName) {
+  var cats = Math.min(Math.max(parseInt(categories) || 3, 2), 5);
+  var items = cats * 3;
+  var prompt = 'INSTRUCCIONES CRITICAS: Responde UNICAMENTE con JSON valido. No uses markdown ni texto adicional. ' +
+    'Genera ' + cats + ' categorias y ' + items + ' elementos (' + cats + ' por categoria) para un juego de arrastrar y soltar sobre SST.' +
+    '\n\nEstructura requerida:' +
+    '\n{"categories":[{"name":"Nombre Categoria","color":"#hexcolor"}],"items":[{"id":1,"text":"Elemento a clasificar","category":"Nombre Categoria exacto","explanation":"Por que pertenece a esta categoria"}]}' +
+    '\n\nReglas:' +
+    '\n- Exactamente ' + cats + ' objetos en "categories" con colores hex distintos.' +
+    '\n- Exactamente ' + items + ' objetos en "items" (3 por categoria).' +
+    '\n- El campo "category" de cada item DEBE coincidir exactamente con un "name" de categories.' +
+    '\n- Contenido basado en el texto o documento recibido.' +
+    '\n- Usa español claro y profesional.';
+  if (textBase) prompt += '\n\nTEXTO BASE:\n' + textBase.substring(0, 15000);
+  if (fileName) prompt += '\n\nArchivo analizado: ' + fileName;
+  return prompt;
+}
+
+function normalizeDragDropData_(data) {
+  var categories = (data.categories || []).filter(function(c) { return c && c.name; }).map(function(c) {
+    return { name: String(c.name).trim(), color: String(c.color || '#3498db').trim() };
+  });
+  var catNames = categories.map(function(c) { return c.name; });
+  var items = (data.items || []).filter(function(it) { return it && it.text && catNames.indexOf(String(it.category).trim()) !== -1; }).map(function(it, i) {
+    return { id: i + 1, text: String(it.text).trim(), category: String(it.category).trim(), explanation: String(it.explanation || '').trim() };
+  });
+  return { categories: categories, items: items };
+}
+
+function saveDragDropToManualSheet_(data, replaceExisting) {
+  crearHojasManuales();
+  var ss = openSpreadsheet_();
+  var sh = ss.getSheetByName('DragDrop_Manual');
+  if (!sh) return { success: false, error: 'No se encontró la hoja DragDrop_Manual.' };
+  if (replaceExisting && sh.getLastRow() > 1) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 4).clearContent();
+  }
+  var colorMap = {};
+  (data.categories || []).forEach(function(c) { colorMap[c.name] = c.color; });
+  var rows = (data.items || []).map(function(it) {
+    return [it.category, colorMap[it.category] || '#3498db', it.text, it.explanation];
+  });
+  if (!rows.length) return { success: false, error: 'La IA no devolvió elementos válidos.' };
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, 4).setValues(rows);
+  return { success: true, added: rows.length, message: rows.length + ' elemento(s) guardados en DragDrop_Manual.' };
+}
+
+function generateManualDragDropWithAI(categories, textBase, fileBase64, fileName, mimeType, replaceExisting) {
+  try {
+    if (!textBase && !fileBase64) return { success: false, error: 'Debes escribir un texto o subir un archivo.' };
+    var prompt = buildManualDragDropPrompt_(categories, textBase, fileName);
+    var fileData = fileBase64 ? { base64: fileBase64, mimeType: mimeType || 'application/octet-stream' } : null;
+    var aiResult = callAI(prompt, fileData);
+    if (!aiResult.data || !aiResult.data.categories || !aiResult.data.items) return { success: false, error: aiResult.error || 'La IA no devolvió el formato esperado.' };
+    var normalized = normalizeDragDropData_(aiResult.data);
+    if (!normalized.items.length) return { success: false, error: 'La IA respondió, pero no con elementos utilizables.' };
+    var saveResult = saveDragDropToManualSheet_(normalized, !!replaceExisting);
+    if (!saveResult.success) return saveResult;
+    return { success: true, added: saveResult.added, message: saveResult.message };
+  } catch(e) { return { success: false, error: e.message }; }
+}
+
+function generateManualDragDropWithAIChunked(uploadId, totalChunks, fileName, mimeType, categories, textBase, replaceExisting) {
+  var assembled = reassembleChunkedUpload_(uploadId, totalChunks);
+  if (!assembled.success) return assembled;
+  return generateManualDragDropWithAI(categories, textBase, assembled.base64, fileName, mimeType, replaceExisting);
+}
+
+// ===== SIMULACION AI =====
+function buildManualSimulacionPrompt_(hazards, textBase, fileName) {
+  var n = Math.min(Math.max(parseInt(hazards) || 6, 3), 10);
+  var prompt = 'INSTRUCCIONES CRITICAS: Responde UNICAMENTE con JSON valido. No uses markdown ni texto adicional. ' +
+    'Genera un escenario de inspeccion de riesgos laborales con exactamente ' + n + ' peligros, basado en el contenido recibido.' +
+    '\n\nEstructura requerida:' +
+    '\n{"scenario":{"title":"Titulo del escenario","description":"Descripcion de la situacion","environment":"tipo_ambiente"},"hazards":[{"id":1,"name":"Nombre del peligro","description":"Descripcion del riesgo","severity":"alta","x":20,"y":30,"width":15,"height":15,"solution":"Medida de control"}]}' +
+    '\n\nReglas:' +
+    '\n- Un solo objeto "scenario" con title, description y environment.' +
+    '\n- Exactamente ' + n + ' objetos en "hazards".' +
+    '\n- "severity" solo puede ser: "baja", "media", "alta" o "critica".' +
+    '\n- x, y, width, height son porcentajes (0-100) sin superponerse entre peligros.' +
+    '\n- Contenido basado en el texto o documento recibido.' +
+    '\n- Usa español claro y profesional.';
+  if (textBase) prompt += '\n\nTEXTO BASE:\n' + textBase.substring(0, 15000);
+  if (fileName) prompt += '\n\nArchivo analizado: ' + fileName;
+  return prompt;
+}
+
+function normalizeSimulacionData_(data) {
+  var scenario = data.scenario || {};
+  var validSeverities = ['baja', 'media', 'alta', 'critica'];
+  var hazards = (data.hazards || []).filter(function(h) { return h && h.name; }).map(function(h, i) {
+    var sev = String(h.severity || 'media').toLowerCase();
+    if (validSeverities.indexOf(sev) === -1) sev = 'media';
+    return {
+      id: i + 1,
+      name: String(h.name).trim(),
+      description: String(h.description || '').trim(),
+      severity: sev,
+      x: Math.min(Math.max(parseInt(h.x) || 20, 0), 85),
+      y: Math.min(Math.max(parseInt(h.y) || 20, 0), 85),
+      width: Math.min(Math.max(parseInt(h.width) || 15, 5), 30),
+      height: Math.min(Math.max(parseInt(h.height) || 15, 5), 30),
+      solution: String(h.solution || '').trim()
+    };
+  });
+  return {
+    scenario: { title: String(scenario.title || 'Escenario SST').trim(), description: String(scenario.description || '').trim(), environment: String(scenario.environment || 'industrial').trim() },
+    hazards: hazards
+  };
+}
+
+function saveSimulacionToManualSheet_(data, replaceExisting) {
+  crearHojasManuales();
+  var ss = openSpreadsheet_();
+  var sh = ss.getSheetByName('Simulacion_Manual');
+  if (!sh) return { success: false, error: 'No se encontró la hoja Simulacion_Manual.' };
+  if (replaceExisting && sh.getLastRow() > 1) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 12).clearContent();
+  }
+  var escId = 'ESC' + (new Date()).getTime().toString().slice(-4);
+  var rows = (data.hazards || []).map(function(h) {
+    return [escId, data.scenario.title, data.scenario.description, data.scenario.environment,
+            h.name, h.description, h.severity, h.x, h.y, h.width, h.height, h.solution];
+  });
+  if (!rows.length) return { success: false, error: 'La IA no devolvió peligros válidos.' };
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, 12).setValues(rows);
+  return { success: true, added: rows.length, message: rows.length + ' peligro(s) guardados en Simulacion_Manual.' };
+}
+
+function generateManualSimulacionWithAI(hazards, textBase, fileBase64, fileName, mimeType, replaceExisting) {
+  try {
+    if (!textBase && !fileBase64) return { success: false, error: 'Debes escribir un texto o subir un archivo.' };
+    var prompt = buildManualSimulacionPrompt_(hazards, textBase, fileName);
+    var fileData = fileBase64 ? { base64: fileBase64, mimeType: mimeType || 'application/octet-stream' } : null;
+    var aiResult = callAI(prompt, fileData);
+    if (!aiResult.data || !aiResult.data.scenario || !aiResult.data.hazards) return { success: false, error: aiResult.error || 'La IA no devolvió el formato esperado.' };
+    var normalized = normalizeSimulacionData_(aiResult.data);
+    if (!normalized.hazards.length) return { success: false, error: 'La IA respondió, pero no con peligros utilizables.' };
+    var saveResult = saveSimulacionToManualSheet_(normalized, !!replaceExisting);
+    if (!saveResult.success) return saveResult;
+    return { success: true, added: saveResult.added, message: saveResult.message };
+  } catch(e) { return { success: false, error: e.message }; }
+}
+
+function generateManualSimulacionWithAIChunked(uploadId, totalChunks, fileName, mimeType, hazards, textBase, replaceExisting) {
+  var assembled = reassembleChunkedUpload_(uploadId, totalChunks);
+  if (!assembled.success) return assembled;
+  return generateManualSimulacionWithAI(hazards, textBase, assembled.base64, fileName, mimeType, replaceExisting);
+}
+
 // ===== PROCESAR ARCHIVO SUBIDO =====
 function processUploadedFile(fileBase64, fileName, mimeType, gameType) {
   // Validate inputs

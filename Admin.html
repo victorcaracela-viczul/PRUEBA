@@ -261,6 +261,126 @@ body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;backg
           <div class="quiz-ai-status" id="quizAiStatus">Disponible solo cuando el juego seleccionado es Quiz.</div>
         </div>
 
+        <!-- MAHJONG AI PANEL -->
+        <div class="quiz-ai-panel" id="mahjongAiPanel">
+          <h4>🀄 Generar pares para Mahjong_Manual</h4>
+          <p style="color:var(--text-light);margin-bottom:14px;line-height:1.6">
+            Sube un documento o pega texto base y la IA generará pares concepto-definición para el juego de Mahjong.
+          </p>
+          <div class="quiz-ai-grid">
+            <div>
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Número de pares (4–20)</label>
+              <input type="number" id="mahjongAiCount" min="4" max="20" value="12">
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Archivo base</label>
+              <input type="file" id="mahjongAiFile" accept=".pdf,.jpg,.jpeg,.png,.txt,.doc,.docx" onchange="handleManualGameFile('mahjong', this)">
+            </div>
+            <div style="grid-column:1/-1">
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Texto base o indicaciones</label>
+              <textarea id="mahjongAiText" placeholder="Pega aquí el contenido del tema o escribe instrucciones para que la IA genere los pares."></textarea>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-light)">
+              <input type="checkbox" id="mahjongAiReplace">
+              Reemplazar pares existentes de Mahjong_Manual
+            </label>
+            <button class="manual-mini-btn primary" type="button" id="btnMahjongAiGenerate" onclick="generateManualGameAI('mahjong')">Generar y guardar</button>
+          </div>
+          <div class="quiz-ai-status" id="mahjongAiStatus">Disponible solo cuando el juego seleccionado es Mahjong.</div>
+        </div>
+
+        <!-- MEMORIA AI PANEL -->
+        <div class="quiz-ai-panel" id="memoriaAiPanel">
+          <h4>🧠 Generar pares para Memoria_Manual</h4>
+          <p style="color:var(--text-light);margin-bottom:14px;line-height:1.6">
+            Sube un documento o pega texto base y la IA generará pares emoji-concepto para el juego de Memoria.
+          </p>
+          <div class="quiz-ai-grid">
+            <div>
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Número de pares (4–12)</label>
+              <input type="number" id="memoriaAiCount" min="4" max="12" value="8">
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Archivo base</label>
+              <input type="file" id="memoriaAiFile" accept=".pdf,.jpg,.jpeg,.png,.txt,.doc,.docx" onchange="handleManualGameFile('memoria', this)">
+            </div>
+            <div style="grid-column:1/-1">
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Texto base o indicaciones</label>
+              <textarea id="memoriaAiText" placeholder="Pega aquí el contenido del tema o escribe instrucciones para que la IA genere los pares."></textarea>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-light)">
+              <input type="checkbox" id="memoriaAiReplace">
+              Reemplazar pares existentes de Memoria_Manual
+            </label>
+            <button class="manual-mini-btn primary" type="button" id="btnMemoriaAiGenerate" onclick="generateManualGameAI('memoria')">Generar y guardar</button>
+          </div>
+          <div class="quiz-ai-status" id="memoriaAiStatus">Disponible solo cuando el juego seleccionado es Memoria.</div>
+        </div>
+
+        <!-- DRAGDROP AI PANEL -->
+        <div class="quiz-ai-panel" id="dragdropAiPanel">
+          <h4>🎯 Generar elementos para DragDrop_Manual</h4>
+          <p style="color:var(--text-light);margin-bottom:14px;line-height:1.6">
+            Sube un documento o pega texto base y la IA generará categorías y elementos para el juego Arrastrar y Soltar.
+          </p>
+          <div class="quiz-ai-grid">
+            <div>
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Número de categorías (2–5)</label>
+              <input type="number" id="dragdropAiCount" min="2" max="5" value="3">
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Archivo base</label>
+              <input type="file" id="dragdropAiFile" accept=".pdf,.jpg,.jpeg,.png,.txt,.doc,.docx" onchange="handleManualGameFile('dragdrop', this)">
+            </div>
+            <div style="grid-column:1/-1">
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Texto base o indicaciones</label>
+              <textarea id="dragdropAiText" placeholder="Pega aquí el contenido del tema o escribe instrucciones para que la IA genere las categorías y elementos."></textarea>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-light)">
+              <input type="checkbox" id="dragdropAiReplace">
+              Reemplazar elementos existentes de DragDrop_Manual
+            </label>
+            <button class="manual-mini-btn primary" type="button" id="btnDragdropAiGenerate" onclick="generateManualGameAI('dragdrop')">Generar y guardar</button>
+          </div>
+          <div class="quiz-ai-status" id="dragdropAiStatus">Disponible solo cuando el juego seleccionado es DragDrop.</div>
+        </div>
+
+        <!-- SIMULACION AI PANEL -->
+        <div class="quiz-ai-panel" id="simulacionAiPanel">
+          <h4>🏗️ Generar escenario para Simulacion_Manual</h4>
+          <p style="color:var(--text-light);margin-bottom:14px;line-height:1.6">
+            Sube un documento o pega texto base y la IA generará un escenario con peligros para el juego de Simulación.
+          </p>
+          <div class="quiz-ai-grid">
+            <div>
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Número de peligros (3–10)</label>
+              <input type="number" id="simulacionAiCount" min="3" max="10" value="6">
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Archivo base</label>
+              <input type="file" id="simulacionAiFile" accept=".pdf,.jpg,.jpeg,.png,.txt,.doc,.docx" onchange="handleManualGameFile('simulacion', this)">
+            </div>
+            <div style="grid-column:1/-1">
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Texto base o indicaciones</label>
+              <textarea id="simulacionAiText" placeholder="Pega aquí el contenido del tema o escribe instrucciones para que la IA genere el escenario."></textarea>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-light)">
+              <input type="checkbox" id="simulacionAiReplace">
+              Reemplazar escenario existente de Simulacion_Manual
+            </label>
+            <button class="manual-mini-btn primary" type="button" id="btnSimulacionAiGenerate" onclick="generateManualGameAI('simulacion')">Generar y guardar</button>
+          </div>
+          <div class="quiz-ai-status" id="simulacionAiStatus">Disponible solo cuando el juego seleccionado es Simulacion.</div>
+        </div>
+
         <div class="result-card" id="manualCrudResult" style="margin-top:0;margin-bottom:16px">
           <h5 id="manualCrudTitle"></h5>
           <p id="manualCrudMsg"></p>
@@ -492,6 +612,9 @@ let currentManualColumns = [];
 let currentManualRecords = [];
 let manualQuizFile = null;
 let manualQuizFileBase64 = null;
+// State for other game AI panels
+const manualGameFiles = { mahjong: null, memoria: null, dragdrop: null, simulacion: null };
+const manualGameBase64 = { mahjong: null, memoria: null, dragdrop: null, simulacion: null };
 
 // Drag & Drop for file upload
 const dz = document.getElementById('dropZone');
@@ -999,9 +1122,11 @@ function resetManualForm() {
 }
 
 function updateQuizAIPanel() {
-  const panel = document.getElementById('quizAiPanel');
-  if (!panel) return;
-  panel.classList.toggle('show', currentManualGame === 'quiz');
+  const gamePanels = { quiz: 'quizAiPanel', mahjong: 'mahjongAiPanel', memoria: 'memoriaAiPanel', dragdrop: 'dragdropAiPanel', simulacion: 'simulacionAiPanel' };
+  Object.entries(gamePanels).forEach(([game, panelId]) => {
+    const panel = document.getElementById(panelId);
+    if (panel) panel.classList.toggle('show', currentManualGame === game);
+  });
 }
 
 function handleManualQuizFile(input) {
@@ -1025,6 +1150,120 @@ function handleManualQuizFile(input) {
     status.textContent = 'No se pudo leer el archivo. Intenta de nuevo.';
   };
   reader.readAsDataURL(manualQuizFile);
+}
+
+// ===== SHARED HANDLER FOR ALL GAME AI PANELS =====
+function handleManualGameFile(game, input) {
+  const statusEl = document.getElementById(game + 'AiStatus');
+  manualGameFiles[game] = input.files && input.files[0] ? input.files[0] : null;
+  manualGameBase64[game] = null;
+  if (!manualGameFiles[game]) {
+    if (statusEl) statusEl.textContent = 'Sin archivo cargado. También puedes generar usando solo texto.';
+    return;
+  }
+  if (statusEl) statusEl.textContent = 'Leyendo archivo...';
+  const reader = new FileReader();
+  reader.onload = function() {
+    manualGameBase64[game] = reader.result.split(',')[1];
+    if (statusEl) statusEl.textContent = 'Archivo listo: ' + manualGameFiles[game].name;
+  };
+  reader.onerror = function() {
+    manualGameFiles[game] = null;
+    manualGameBase64[game] = null;
+    input.value = '';
+    if (statusEl) statusEl.textContent = 'No se pudo leer el archivo. Intenta de nuevo.';
+  };
+  reader.readAsDataURL(manualGameFiles[game]);
+}
+
+function setGameAiBusy(game, isBusy, message) {
+  const btnIds = { mahjong: 'btnMahjongAiGenerate', memoria: 'btnMemoriaAiGenerate', dragdrop: 'btnDragdropAiGenerate', simulacion: 'btnSimulacionAiGenerate' };
+  const btn = document.getElementById(btnIds[game]);
+  const status = document.getElementById(game + 'AiStatus');
+  if (btn) { btn.disabled = isBusy; btn.textContent = isBusy ? 'Generando...' : 'Generar y guardar'; }
+  if (message && status) status.textContent = message;
+}
+
+const GAME_SERVER_FN = {
+  mahjong: 'generateManualMahjongWithAI',
+  memoria: 'generateManualMemoriaWithAI',
+  dragdrop: 'generateManualDragDropWithAI',
+  simulacion: 'generateManualSimulacionWithAI'
+};
+const GAME_SERVER_CHUNKED_FN = {
+  mahjong: 'generateManualMahjongWithAIChunked',
+  memoria: 'generateManualMemoriaWithAIChunked',
+  dragdrop: 'generateManualDragDropWithAIChunked',
+  simulacion: 'generateManualSimulacionWithAIChunked'
+};
+
+function generateManualGameAI(game) {
+  const count = parseInt(document.getElementById(game + 'AiCount').value) || 0;
+  const textBase = document.getElementById(game + 'AiText').value.trim();
+  const replaceExisting = document.getElementById(game + 'AiReplace').checked;
+  const file = manualGameFiles[game];
+  const fileBase64 = manualGameBase64[game];
+
+  if (!textBase && !file) {
+    setGameAiBusy(game, false, 'Escribe un texto o sube un archivo para generar.');
+    return;
+  }
+  if (file && !fileBase64) {
+    setGameAiBusy(game, false, 'El archivo todavía se está leyendo. Espera un momento.');
+    return;
+  }
+
+  setGameAiBusy(game, true, 'Generando con IA...');
+
+  const onSuccess = function(result) {
+    setGameAiBusy(game, false, '');
+    if (result && result.success) {
+      document.getElementById(game + 'AiStatus').textContent = '✅ ' + result.message;
+      loadManualRecords();
+    } else {
+      document.getElementById(game + 'AiStatus').textContent = '❌ ' + (result && result.error ? result.error : 'Error desconocido.');
+    }
+  };
+  const onFailure = function(err) {
+    setGameAiBusy(game, false, '❌ Error de conexión: ' + (err ? err.message || err : 'desconocido'));
+  };
+
+  if (fileBase64 && fileBase64.length > 80000) {
+    const CHUNK_SIZE = 80000;
+    const uploadId = Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+    const chunks = [];
+    for (let i = 0; i < fileBase64.length; i += CHUNK_SIZE) {
+      chunks.push(fileBase64.substring(i, i + CHUNK_SIZE));
+    }
+    sendGameChunks(game, uploadId, chunks, file, count, textBase, replaceExisting, onSuccess, onFailure);
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(onSuccess)
+    .withFailureHandler(onFailure)
+    [GAME_SERVER_FN[game]](count, textBase || null, fileBase64 || null, file ? file.name : null, file ? (file.type || 'application/octet-stream') : null, replaceExisting);
+}
+
+function sendGameChunks(game, uploadId, chunks, file, count, textBase, replaceExisting, onSuccess, onFailure) {
+  let index = 0;
+  const totalChunks = chunks.length;
+  function next() {
+    if (index >= totalChunks) {
+      setGameAiBusy(game, true, 'Generando con IA...');
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onFailure)
+        [GAME_SERVER_CHUNKED_FN[game]](uploadId, totalChunks, file.name, file.type || 'application/octet-stream', count, textBase || null, replaceExisting);
+      return;
+    }
+    setGameAiBusy(game, true, 'Subiendo archivo... ' + (index + 1) + ' / ' + totalChunks);
+    google.script.run
+      .withSuccessHandler(function() { index++; next(); })
+      .withFailureHandler(onFailure)
+      .uploadFileChunk(uploadId, index, chunks[index]);
+  }
+  next();
 }
 
 function setQuizAiBusy(isBusy, message) {
