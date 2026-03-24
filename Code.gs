@@ -238,7 +238,7 @@ function callGeminiAI(prompt, fileData) {
   }
   try {
     // Try multiple model names in case one isn't available
-    var models = ['gemini-1.5-flash', 'gemini-2.0-flash'];
+    var models = ['gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.5-flash', 'gemini-1.5-flash'];
     var lastError = '';
 
     for (var m = 0; m < models.length; m++) {
@@ -297,7 +297,9 @@ function callGeminiAI(prompt, fileData) {
           var errJson = JSON.parse(responseText);
           errDetail = errJson.error ? errJson.error.message : responseText.substring(0, 200);
         } catch(e) { errDetail = responseText.substring(0, 200); }
-        return { data: null, error: 'Gemini HTTP ' + httpCode + ' (' + models[m] + '): ' + errDetail };
+        lastError = 'Gemini HTTP ' + httpCode + ' (' + models[m] + '): ' + errDetail;
+        Logger.log('Modelo ' + models[m] + ' falló con HTTP ' + httpCode + ', probando siguiente...');
+        continue; // Try next model instead of returning immediately
       }
 
       // Success - parse response
@@ -313,12 +315,24 @@ function callGeminiAI(prompt, fileData) {
         try {
           return { data: JSON.parse(text), error: null };
         } catch(e) {
-          // Si falla, intenta extraer lo que esté entre llaves { }
-          var match = text.match(/\{[\s\S]*\}/);
-          if (match) {
-            try { return { data: JSON.parse(match[0]), error: null }; } catch(e2) {}
+          // Intenta extraer JSON de objeto { }
+          var matchObj = text.match(/\{[\s\S]*\}/);
+          if (matchObj) {
+            try { return { data: JSON.parse(matchObj[0]), error: null }; } catch(e2) {}
           }
-          return { data: null, error: 'Error parseando JSON: ' + e.message + '. Respuesta: ' + text.substring(0, 300) };
+          // Intenta extraer JSON de array [ ]
+          var matchArr = text.match(/\[[\s\S]*\]/);
+          if (matchArr) {
+            try {
+              var arr = JSON.parse(matchArr[0]);
+              if (Array.isArray(arr) && arr.length > 0) {
+                return { data: { questions: arr }, error: null };
+              }
+            } catch(e3) {}
+          }
+          lastError = 'Error parseando JSON: ' + e.message + '. Respuesta: ' + text.substring(0, 300);
+          Logger.log('JSON parse falló en modelo ' + models[m] + ', probando siguiente...');
+          continue; // Try next model on parse failure
         }
       }
 
@@ -327,7 +341,8 @@ function callGeminiAI(prompt, fileData) {
         return { data: null, error: 'Gemini bloqueó el contenido por filtros de seguridad. Intenta con otro archivo.' };
       }
 
-      return { data: null, error: 'Gemini no generó respuesta. Respuesta: ' + responseText.substring(0, 200) };
+      lastError = 'Gemini no generó respuesta. Respuesta: ' + responseText.substring(0, 200);
+      continue; // Try next model
     }
 
     return { data: null, error: lastError || 'Ningún modelo de Gemini disponible.' };
