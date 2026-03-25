@@ -354,21 +354,24 @@ body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;backg
         <!-- SIMULACION AI PANEL -->
         <div class="quiz-ai-panel" id="simulacionAiPanel">
           <h4>🏗️ Generar escenario para Simulacion_Manual</h4>
-          <p style="color:var(--text-light);margin-bottom:14px;line-height:1.6">
-            Sube un documento o pega texto base y la IA generará un escenario con peligros para el juego de Simulación.
+          <p style="color:var(--text-light);margin-bottom:8px;line-height:1.6">
+            Sube una <strong>foto real del lugar de trabajo</strong> (JPG/PNG) y la IA analizará la imagen, identificará los peligros y los posicionará sobre ella como fondo del juego. También puedes subir un PDF o escribir texto para generar un escenario sin imagen de fondo.
           </p>
+          <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#856404">
+            📸 <strong>Tip:</strong> Sube una foto JPG/PNG del lugar → la imagen aparecerá de fondo en el juego y la IA marcará los peligros sobre ella.
+          </div>
           <div class="quiz-ai-grid">
             <div>
               <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Número de peligros (3–10)</label>
               <input type="number" id="simulacionAiCount" min="3" max="10" value="6">
             </div>
             <div>
-              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Archivo base</label>
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Foto o documento del lugar de trabajo</label>
               <input type="file" id="simulacionAiFile" accept=".pdf,.jpg,.jpeg,.png,.txt,.doc,.docx" onchange="handleManualGameFile('simulacion', this)">
             </div>
             <div style="grid-column:1/-1">
-              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Texto base o indicaciones</label>
-              <textarea id="simulacionAiText" placeholder="Pega aquí el contenido del tema o escribe instrucciones para que la IA genere el escenario."></textarea>
+              <label style="display:block;font-size:12px;font-weight:800;color:var(--text-light);margin-bottom:6px">Texto base o indicaciones (opcional si subes foto)</label>
+              <textarea id="simulacionAiText" placeholder="Escribe el tema, contexto o instrucciones adicionales para el escenario. Si subes una foto, la IA la analiza automáticamente."></textarea>
             </div>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px">
@@ -1218,7 +1221,10 @@ function generateManualGameAI(game) {
   const onSuccess = function(result) {
     setGameAiBusy(game, false, '');
     if (result && result.success) {
-      document.getElementById(game + 'AiStatus').textContent = '✅ ' + result.message;
+      let msg = '✅ ' + result.message;
+      if (game === 'simulacion' && result.imageUrl) msg += ' | 🖼️ Imagen guardada como fondo del escenario.';
+      else if (game === 'simulacion') msg += ' | (Sin imagen de fondo — sube una foto JPG/PNG para añadirla)';
+      document.getElementById(game + 'AiStatus').textContent = msg;
       loadManualRecords();
     } else {
       document.getElementById(game + 'AiStatus').textContent = '❌ ' + (result && result.error ? result.error : 'Error desconocido.');

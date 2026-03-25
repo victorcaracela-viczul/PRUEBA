@@ -947,21 +947,27 @@ function generateManualDragDropWithAIChunked(uploadId, totalChunks, fileName, mi
 }
 
 // ===== SIMULACION AI =====
-function buildManualSimulacionPrompt_(hazards, textBase, fileName) {
+function buildManualSimulacionPrompt_(hazards, textBase, fileName, hasImage) {
   var n = Math.min(Math.max(parseInt(hazards) || 6, 3), 10);
-  var prompt = 'INSTRUCCIONES CRITICAS: Responde UNICAMENTE con JSON valido. No uses markdown ni texto adicional. ' +
-    'Genera un escenario de inspeccion de riesgos laborales con exactamente ' + n + ' peligros, basado en el contenido recibido.' +
-    '\n\nEstructura requerida:' +
+  var prompt = 'INSTRUCCIONES CRITICAS: Responde UNICAMENTE con JSON valido. No uses markdown ni texto adicional. ';
+  if (hasImage) {
+    prompt += 'Analiza la imagen adjunta que muestra un lugar de trabajo real. ' +
+      'Identifica exactamente ' + n + ' peligros de seguridad laboral VISIBLES en la imagen. ' +
+      'Para cada peligro especifica su posicion en la imagen usando porcentajes (0-100) donde x=0,y=0 es la esquina superior izquierda.';
+  } else {
+    prompt += 'Genera un escenario de inspeccion de riesgos laborales con exactamente ' + n + ' peligros, basado en el contenido recibido.';
+  }
+  prompt += '\n\nEstructura requerida:' +
     '\n{"scenario":{"title":"Titulo del escenario","description":"Descripcion de la situacion","environment":"tipo_ambiente"},"hazards":[{"id":1,"name":"Nombre del peligro","description":"Descripcion del riesgo","severity":"alta","x":20,"y":30,"width":15,"height":15,"solution":"Medida de control"}]}' +
     '\n\nReglas:' +
     '\n- Un solo objeto "scenario" con title, description y environment.' +
     '\n- Exactamente ' + n + ' objetos en "hazards".' +
     '\n- "severity" solo puede ser: "baja", "media", "alta" o "critica".' +
     '\n- x, y, width, height son porcentajes (0-100) sin superponerse entre peligros.' +
-    '\n- Contenido basado en el texto o documento recibido.' +
+    (hasImage ? '\n- Los peligros deben corresponder a ubicaciones reales en la imagen.' : '\n- Contenido basado en el texto o documento recibido.') +
     '\n- Usa español claro y profesional.';
   if (textBase) prompt += '\n\nTEXTO BASE:\n' + textBase.substring(0, 15000);
-  if (fileName) prompt += '\n\nArchivo analizado: ' + fileName;
+  if (fileName && !hasImage) prompt += '\n\nArchivo analizado: ' + fileName;
   return prompt;
 }
 
@@ -1011,18 +1017,23 @@ function saveSimulacionToManualSheet_(data, replaceExisting) {
 function generateManualSimulacionWithAI(hazards, textBase, fileBase64, fileName, mimeType, replaceExisting) {
   try {
     if (!textBase && !fileBase64) return { success: false, error: 'Debes escribir un texto o subir un archivo.' };
-    var prompt = buildManualSimulacionPrompt_(hazards, textBase, fileName);
+    var isImage = fileBase64 && mimeType && mimeType.indexOf('image/') === 0;
+    // If an image was uploaded, save it to Drive first and use it as the scene background
+    var imageUrl = null;
+    if (isImage) {
+      var imgSave = saveImageToDrive_(fileBase64, mimeType, fileName);
+      if (imgSave.url) imageUrl = imgSave.url;
+    }
+    var prompt = buildManualSimulacionPrompt_(hazards, textBase, fileName, isImage);
     var fileData = fileBase64 ? { base64: fileBase64, mimeType: mimeType || 'application/octet-stream' } : null;
     var aiResult = callAI(prompt, fileData);
     if (!aiResult.data || !aiResult.data.scenario || !aiResult.data.hazards) return { success: false, error: aiResult.error || 'La IA no devolvió el formato esperado.' };
     var normalized = normalizeSimulacionData_(aiResult.data);
     if (!normalized.hazards.length) return { success: false, error: 'La IA respondió, pero no con peligros utilizables.' };
-    // Generate scene image with Imagen 3
-    var imageResult = generateSceneImage_(normalized.scenario.title, normalized.scenario.description, normalized.scenario.environment);
-    if (imageResult.url) normalized.scenario.imageUrl = imageResult.url;
+    if (imageUrl) normalized.scenario.imageUrl = imageUrl;
     var saveResult = saveSimulacionToManualSheet_(normalized, !!replaceExisting);
     if (!saveResult.success) return saveResult;
-    return { success: true, added: saveResult.added, message: saveResult.message, imageUrl: normalized.scenario.imageUrl || null };
+    return { success: true, added: saveResult.added, message: saveResult.message, imageUrl: imageUrl };
   } catch(e) { return { success: false, error: e.message }; }
 }
 
@@ -1032,49 +1043,18 @@ function generateManualSimulacionWithAIChunked(uploadId, totalChunks, fileName, 
   return generateManualSimulacionWithAI(hazards, textBase, assembled.base64, fileName, mimeType, replaceExisting);
 }
 
-// ===== IMAGEN GENERADA POR IA PARA SIMULACION =====
-function generateSceneImage_(title, description, environment) {
+// ===== GUARDAR IMAGEN EN DRIVE PARA FONDO DE SIMULACION =====
+function saveImageToDrive_(base64, mimeType, fileName) {
   try {
-    var apiKey = CONFIG.GEMINI_API_KEY;
-    if (!apiKey || apiKey === 'TU_GEMINI_API_KEY_AQUI') return { url: null, error: 'API Key no configurada.' };
-
-    var envNames = { construccion: 'construction site', taller: 'industrial workshop', almacen: 'warehouse storage facility' };
-    var envLabel = envNames[environment] || environment || 'industrial workplace';
-    var imagePrompt = 'Workplace safety inspection scene: ' + envLabel + '. ' + title + '. ' + description +
-      ' Realistic, detailed, wide-angle view showing the full work area. Safety hazards visible. Photorealistic style.';
-
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=' + apiKey;
-    var payload = JSON.stringify({
-      instances: [{ prompt: imagePrompt }],
-      parameters: { sampleCount: 1, aspectRatio: '16:9' }
-    });
-    var response = UrlFetchApp.fetch(url, {
-      method: 'post',
-      contentType: 'application/json',
-      payload: payload,
-      muteHttpExceptions: true
-    });
-    var code = response.getResponseCode();
-    if (code !== 200) {
-      Logger.log('Imagen API error ' + code + ': ' + response.getContentText());
-      return { url: null, error: 'Imagen API error ' + code };
-    }
-    var result = JSON.parse(response.getContentText());
-    var b64 = result.predictions && result.predictions[0] && result.predictions[0].bytesBase64Encoded;
-    if (!b64) return { url: null, error: 'La API no devolvió imagen.' };
-
-    // Save PNG to Drive folder
     var folderId = '1eSJvUfrb5tQqON-KW08DjsGii1-XSKmp';
     var folder = DriveApp.getFolderById(folderId);
-    var fileName = 'simulacion_' + (new Date()).getTime() + '.png';
-    var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/png', fileName);
+    var name = 'escena_' + (new Date()).getTime() + '_' + (fileName || 'imagen.png');
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64), mimeType, name);
     var file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    var fileId = file.getId();
-    var publicUrl = 'https://drive.google.com/uc?export=view&id=' + fileId;
-    return { url: publicUrl, fileId: fileId };
+    return { url: 'https://drive.google.com/uc?export=view&id=' + file.getId(), fileId: file.getId() };
   } catch(e) {
-    Logger.log('generateSceneImage_ error: ' + e.message);
+    Logger.log('saveImageToDrive_ error: ' + e.message);
     return { url: null, error: e.message };
   }
 }
