@@ -191,7 +191,8 @@ function endGame(){
   if(currentUser)try{google.script.run.saveScore({dni:currentUser.dni,nombre:currentUser.nombre+' '+currentUser.apellido,juego:'Drag & Drop SST',puntaje:fs,tiempo:m+':'+(s<10?'0':'')+s,detalles:'Correctos:'+correct+'/'+totalItems+',Precisión:'+acc+'%'})}catch(e){}
 }
 
-function goBack(){try{google.script.run.withSuccessHandler(function(u){window.top.location.href=u+'?page=Portal'}).withFailureHandler(function(){window.top.location.href='Portal.html'}).getWebAppUrl()}catch(e){window.top.location.href='Portal.html'}}
+function goBack(){if(window.parent!==window){try{window.parent.postMessage({sst_action:'goHome'},'*');return;}catch(e){}}try{google.script.run.withSuccessHandler(function(u){window.top.location.href=u+'?page=Portal'}).withFailureHandler(function(){window.top.location.href='Portal.html'}).getWebAppUrl()}catch(e){window.top.location.href='Portal.html'}}
 </script>
+<script>if(window.self!==window.top){document.addEventListener('DOMContentLoaded',function(){var b=document.querySelector('.btn-back');if(b)b.style.display='none';});}</script>
 </body>
 </html>

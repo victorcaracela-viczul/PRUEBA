@@ -582,6 +582,11 @@ function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sbOv').classList.remove('show');
 }
+
+// Listen for messages from game iframes (e.g. goBack request)
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.sst_action === 'goHome') showHome();
+});
 </script>
 </body>
 </html>
