@@ -144,7 +144,8 @@ async function startGame(){
   const d=await getDataFromAI();questions=d.questions;
   const dots=document.getElementById('progressDots');dots.innerHTML='';
   questions.forEach((_,i)=>{const d=document.createElement('div');d.className='dot';d.id='dot-'+i;dots.appendChild(d)});
-  setTimeout(()=>{document.getElementById('loadingScreen').classList.add('hidden');showQ()},300);
+  document.getElementById('loadingScreen').classList.add('hidden');
+  showQ();
 }
 
 function showQ(){

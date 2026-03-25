@@ -679,6 +679,7 @@ function normalizeQuizQuestions_(questions) {
 }
 
 function saveQuizQuestionsToManualSheet_(questions, replaceExisting) {
+  clearGameCache_('quiz');
   crearHojasManuales();
 
   var ss = openSpreadsheet_();
@@ -777,6 +778,7 @@ function normalizeMahjongPairs_(pairs) {
 }
 
 function saveMahjongPairsToManualSheet_(pairs, replaceExisting) {
+  clearGameCache_('mahjong');
   crearHojasManuales();
   var ss = openSpreadsheet_();
   var sh = ss.getSheetByName('Mahjong_Manual');
@@ -843,6 +845,7 @@ function normalizeMemoriaPairs_(pairs) {
 }
 
 function saveMemoriaPairsToManualSheet_(pairs, replaceExisting) {
+  clearGameCache_('memoria');
   crearHojasManuales();
   var ss = openSpreadsheet_();
   var sh = ss.getSheetByName('Memoria_Manual');
@@ -908,6 +911,7 @@ function normalizeDragDropData_(data) {
 }
 
 function saveDragDropToManualSheet_(data, replaceExisting) {
+  clearGameCache_('dragdrop');
   crearHojasManuales();
   var ss = openSpreadsheet_();
   var sh = ss.getSheetByName('DragDrop_Manual');
@@ -996,6 +1000,7 @@ function normalizeSimulacionData_(data) {
 }
 
 function saveSimulacionToManualSheet_(data, replaceExisting) {
+  clearGameCache_('simulacion');
   crearHojasManuales();
   var ss = openSpreadsheet_();
   var sh = ss.getSheetByName('Simulacion_Manual');
@@ -1206,14 +1211,39 @@ function saveGeneratedContent(gameType, data, source) {
   } catch(e) { Logger.log('Save content error: ' + e.message); }
 }
 
+function shuffle_(arr) {
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+  }
+  return arr;
+}
+
 // ===== GET CONTENT (tries saved first, then generates) =====
+function clearGameCache_(gameType) {
+  try { CacheService.getScriptCache().remove('gc_' + gameType); } catch(e) {}
+}
+
 function getAIContent(gameType, params) {
   // SAFETY: This function must NEVER return null
   try {
+    var cache = CacheService.getScriptCache();
+    var cacheKey = 'gc_' + gameType;
+
+    // 0) Cache hit — skip all sheet/API reads
+    var cached = cache.get(cacheKey);
+    if (cached) {
+      try {
+        var hit = JSON.parse(cached);
+        if (hit) return hit;
+      } catch(e) {}
+    }
+
     // 1) PRIMERO: Intentar hojas manuales (datos ingresados por humano)
     try {
       var manualData = leerDatosManual(gameType);
       if (manualData) {
+        try { cache.put(cacheKey, JSON.stringify(manualData), 600); } catch(e) {}
         Logger.log('Usando datos MANUALES para: ' + gameType);
         return manualData;
       }
@@ -1234,7 +1264,10 @@ function getAIContent(gameType, params) {
         if (matching.length > 0) {
           var picked = matching[Math.floor(Math.random() * matching.length)];
           var parsed = JSON.parse(picked);
-          if (parsed) return parsed;
+          if (parsed) {
+            try { cache.put(cacheKey, JSON.stringify(parsed), 600); } catch(e) {}
+            return parsed;
+          }
         }
       }
     } catch(e) { Logger.log('Saved content error: ' + e.message); }
@@ -1243,7 +1276,10 @@ function getAIContent(gameType, params) {
     try {
       var prompt = buildGenerationPrompt(gameType, params);
       var aiResult = callAI(prompt, null);
-      if (aiResult.data) return aiResult.data;
+      if (aiResult.data) {
+        try { cache.put(cacheKey, JSON.stringify(aiResult.data), 600); } catch(e) {}
+        return aiResult.data;
+      }
     } catch(e) { Logger.log('AI error: ' + e.message); }
 
     // 4) Fallback: datos predeterminados
@@ -1596,7 +1632,7 @@ function leerDatosManualQuiz() {
     }
     if (questions.length === 0) return null;
     // Barajar y tomar hasta 10
-    questions.sort(function() { return Math.random() - 0.5; });
+    shuffle_(questions);
     return { questions: questions.slice(0, 10) };
   } catch(e) { Logger.log('Manual quiz error: ' + e.message); return null; }
 }
@@ -1617,7 +1653,7 @@ function leerDatosManualMahjong() {
       });
     }
     if (pairs.length === 0) return null;
-    pairs.sort(function() { return Math.random() - 0.5; });
+    shuffle_(pairs);
     return { pairs: pairs.slice(0, 12) };
   } catch(e) { Logger.log('Manual mahjong error: ' + e.message); return null; }
 }
@@ -1639,7 +1675,7 @@ function leerDatosManualMemoria() {
       });
     }
     if (pairs.length === 0) return null;
-    pairs.sort(function() { return Math.random() - 0.5; });
+    shuffle_(pairs);
     return { pairs: pairs.slice(0, 8) };
   } catch(e) { Logger.log('Manual memoria error: ' + e.message); return null; }
 }
@@ -1669,7 +1705,7 @@ function leerDatosManualDragDrop() {
       categories.push({ name: name, color: catMap[name] });
     }
     if (categories.length === 0 || items.length === 0) return null;
-    items.sort(function() { return Math.random() - 0.5; });
+    shuffle_(items);
     return { categories: categories, items: items };
   } catch(e) { Logger.log('Manual dragdrop error: ' + e.message); return null; }
 }

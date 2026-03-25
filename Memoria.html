@@ -46,6 +46,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
 @keyframes matchGlow{50%{transform:rotateY(180deg) scale(1.06)}}
 .card.wrong .card-back{border-color:var(--red)!important;animation:cardShake .5s ease}
 @keyframes cardShake{0%,100%{transform:rotateY(180deg) translateX(0)}25%{transform:rotateY(180deg) translateX(-5px)}75%{transform:rotateY(180deg) translateX(5px)}}
+@keyframes cardIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 
 /* Explanation Panel */
 .exp-panel{position:fixed;bottom:-180px;left:50%;transform:translateX(-50%);width:90%;max-width:550px;background:var(--card);border-radius:var(--radius) var(--radius) 0 0;padding:16px 20px;box-shadow:0 -4px 20px rgba(0,0,0,0.1);z-index:60;transition:bottom .5s cubic-bezier(0.34,1.56,0.64,1)}
@@ -144,7 +145,7 @@ async function startGame(){
   });
   for(let i=cards.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cards[i],cards[j]]=[cards[j],cards[i]]}
   renderBoard();
-  setTimeout(()=>document.getElementById('loadingScreen').classList.add('hidden'),300);
+  document.getElementById('loadingScreen').classList.add('hidden');
 }
 
 function renderBoard(){
@@ -152,9 +153,9 @@ function renderBoard(){
   cards.forEach((c,i)=>{
     const el=document.createElement('div');el.className='card';el.dataset.idx=i;
     el.innerHTML=`<div class="card-inner"><div class="card-face card-front"><div class="icon">🛡️</div><div class="label">SST</div></div><div class="card-face card-back"><div class="emoji">${c.display}</div><div class="text">${c.side==='back'?c.display:''}</div></div></div>`;
-    el.onclick=()=>flipCard(i,el);b.appendChild(el);
-    el.style.opacity='0';el.style.transform='translateY(16px)';
-    setTimeout(()=>{el.style.transition='all .4s ease';el.style.opacity='1';el.style.transform=''},i*40+150);
+    el.onclick=()=>flipCard(i,el);
+    el.style.animation='cardIn .3s ease '+(i*25)+'ms both';
+    b.appendChild(el);
   });
 }
 
