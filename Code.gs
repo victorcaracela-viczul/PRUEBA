@@ -61,11 +61,26 @@ function doGet(e) {
   const page = (e && e.parameter && e.parameter.page) ? e.parameter.page : 'Portal';
   const valid = ['Portal','Admin','Mahjong','Memoria','DragDrop','Quiz','Simulacion'];
   if (valid.indexOf(page) === -1) return HtmlService.createHtmlOutput('<h1>Página no encontrada</h1>');
-  
-  return HtmlService.createHtmlOutputFromFile(page)
-    .setTitle('SST GameHub - ' + page)
+
+  var output = HtmlService.createHtmlOutputFromFile(page)
+    .setTitle('SST GameHub')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+
+  // Inject user into game pages when loaded via Portal iframe (URL params)
+  var dni = e && e.parameter && e.parameter.dni ? e.parameter.dni : '';
+  if (dni && page !== 'Portal' && page !== 'Admin') {
+    var userObj = {
+      dni: dni,
+      nombre: e.parameter.nombre ? decodeURIComponent(e.parameter.nombre) : '',
+      apellido: e.parameter.apellido ? decodeURIComponent(e.parameter.apellido) : ''
+    };
+    var inject = '<script>try{if(!sessionStorage.getItem("sst_user"))sessionStorage.setItem("sst_user",JSON.stringify('
+      + JSON.stringify(userObj) + '));}catch(e){}<\/script>';
+    output.setContent(output.getContent().replace('<head>', '<head>' + inject));
+  }
+
+  return output;
 }
 
 // ===== LOGIN =====
